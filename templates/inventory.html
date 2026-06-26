@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Inventory Management{% endblock %}
+{% block page_title %}Inventory Management{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>Adjust Stock</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('adjust_inventory') }}">
+          <div class="mb-3">
+            <label class="form-label">Product</label>
+            <select name="product_id" class="form-select" required>
+              <option value="">Select Product</option>
+              {% for p in products %}
+              <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_quantity }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Adjustment Type</label>
+            <select name="change_type" class="form-select" required>
+              <option value="stock_in">Stock In (Add)</option>
+              <option value="stock_out">Stock Out (Remove)</option>
+              <option value="adjustment">Set Exact Quantity</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Quantity</label>
+            <input type="number" name="quantity" class="form-control" required min="0">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Reason</label>
+            <input type="text" name="reason" class="form-control" placeholder="e.g. Supplier delivery, Damage...">
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Update Stock</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table me-2"></i>Current Stock Levels</span>
+        <a href="{{ url_for('report_inventory') }}" class="btn btn-sm btn-outline-secondary">Full Report</a>
+      </div>
+      <div class="card-body p-0" style="max-height:300px;overflow-y:auto">
+        <table class="table mb-0">
+          <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Threshold</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td class="fw-bold" style="font-size:13px">{{ p.name }}</td>
+              <td><span class="badge bg-secondary">{{ p.category.name if p.category else '—' }}</span></td>
+              <td><span class="fw-bold {% if p.is_low_stock() %}text-danger{% else %}text-success{% endif %}">{{ p.stock_quantity }}</span></td>
+              <td class="text-muted">{{ p.low_stock_threshold }}</td>
+              <td>{% if p.is_low_stock() %}<span class="low-stock-badge">LOW STOCK</span>{% else %}<span class="status-badge status-completed">OK</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-clock-history me-2"></i>Recent Inventory History</div>
+      <div class="card-body p-0" style="max-height:320px;overflow-y:auto">
+        <table class="table mb-0">
+          <thead><tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Reason</th><th>By</th></tr></thead>
+          <tbody>
+            {% for h in history %}
+            <tr>
+              <td style="font-size:11px;color:var(--text-muted)">{{ h.created_at.strftime('%d %b %H:%M') }}</td>
+              <td style="font-size:13px;font-weight:600">{{ h.product.name }}</td>
+              <td>
+                <span class="status-badge {% if h.change_type == 'stock_in' %}status-completed{% elif h.change_type == 'sale' %}status-held{% elif h.change_type == 'return' %}status-refunded{% else %}status-draft{% endif %}">
+                  {{ h.change_type.replace('_', ' ').title() }}
+                </span>
+              </td>
+              <td class="fw-bold">{{ h.quantity }}</td>
+              <td style="font-size:12px;color:var(--text-muted)">{{ h.reason or '—' }}</td>
+              <td style="font-size:12px">{{ h.user.username if h.user else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No history yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

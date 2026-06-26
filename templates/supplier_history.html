@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ supplier.name }} — History{% endblock %}
+{% block page_title %}Purchase History — {{ supplier.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div><h5 class="mb-0 fw-bold">{{ supplier.name }}</h5><div style="font-size:13px;color:var(--text-muted)">{{ supplier.contact_person }} | {{ supplier.phone }}</div></div>
+  <a href="{{ url_for('suppliers') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table mb-0">
+    <thead><tr><th>Ref No</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for p in purchases %}
+      <tr>
+        <td class="fw-bold" style="color:var(--brand-accent)">{{ p.reference_no }}</td>
+        <td style="font-size:12px">{{ p.created_at.strftime('%d %b %Y') }}</td>
+        <td>{{ p.items|length }}</td>
+        <td class="fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(p.total_amount) }}</td>
+        <td><span class="status-badge status-completed">{{ p.status.title() }}</span></td>
+        <td><a href="{{ url_for('view_purchase', purchase_id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-center text-muted py-4">No purchase orders yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% endblock %}

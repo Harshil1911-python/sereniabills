@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ settings.theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SereniaBills{% endblock %} — SereniaBills</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+<div class="sb-wrapper">
+  <!-- Sidebar -->
+  <nav id="sidebar" class="sb-sidebar">
+    <div class="sb-brand">
+      {% if settings.logo %}
+        <img src="{{ url_for('static', filename='uploads/' + settings.logo) }}" class="sb-logo-img" alt="Logo">
+      {% else %}
+        <div class="sb-logo-icon"><i class="bi bi-receipt-cutoff"></i></div>
+      {% endif %}
+      <div class="sb-brand-text">
+        <span class="sb-brand-name">SereniaBills</span>
+        <span class="sb-brand-tagline">{{ settings.company_name }}</span>
+      </div>
+    </div>
+
+    <div class="sb-nav">
+      <div class="sb-section-label">Main</div>
+      <a href="{{ url_for('dashboard') }}" class="sb-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+      </a>
+
+      <div class="sb-section-label">Sales</div>
+      <a href="{{ url_for('pos_text') }}" class="sb-link {% if request.endpoint == 'pos_text' %}active{% endif %}">
+        <i class="bi bi-keyboard"></i><span>Text POS</span>
+      </a>
+      <a href="{{ url_for('pos_photo') }}" class="sb-link {% if request.endpoint == 'pos_photo' %}active{% endif %}">
+        <i class="bi bi-grid-3x3-gap"></i><span>Photo POS</span>
+      </a>
+      <a href="{{ url_for('invoices') }}" class="sb-link {% if request.endpoint == 'invoices' %}active{% endif %}">
+        <i class="bi bi-receipt"></i><span>Invoices</span>
+      </a>
+
+      <div class="sb-section-label">Inventory</div>
+      <a href="{{ url_for('products') }}" class="sb-link {% if request.endpoint in ['products','add_product','edit_product'] %}active{% endif %}">
+        <i class="bi bi-box-seam"></i><span>Products</span>
+      </a>
+      <a href="{{ url_for('inventory') }}" class="sb-link {% if request.endpoint == 'inventory' %}active{% endif %}">
+        <i class="bi bi-archive"></i><span>Inventory</span>
+      </a>
+      <a href="{{ url_for('categories') }}" class="sb-link {% if request.endpoint == 'categories' %}active{% endif %}">
+        <i class="bi bi-tags"></i><span>Categories</span>
+      </a>
+      <a href="{{ url_for('brands') }}" class="sb-link {% if request.endpoint == 'brands' %}active{% endif %}">
+        <i class="bi bi-bookmark-star"></i><span>Brands</span>
+      </a>
+      <a href="{{ url_for('purchases') }}" class="sb-link {% if request.endpoint in ['purchases','add_purchase'] %}active{% endif %}">
+        <i class="bi bi-cart-plus"></i><span>Purchases</span>
+      </a>
+
+      <div class="sb-section-label">Contacts</div>
+      <a href="{{ url_for('customers') }}" class="sb-link {% if 'customer' in request.endpoint %}active{% endif %}">
+        <i class="bi bi-people"></i><span>Customers</span>
+      </a>
+      <a href="{{ url_for('suppliers') }}" class="sb-link {% if 'supplier' in request.endpoint %}active{% endif %}">
+        <i class="bi bi-truck"></i><span>Suppliers</span>
+      </a>
+
+      <div class="sb-section-label">Analytics</div>
+      <a href="{{ url_for('reports') }}" class="sb-link {% if 'report' in request.endpoint and 'daily' not in request.endpoint %}active{% endif %}">
+        <i class="bi bi-bar-chart-line"></i><span>Reports</span>
+      </a>
+      <a href="{{ url_for('daily_summary') }}" class="sb-link {% if request.endpoint == 'daily_summary' %}active{% endif %}">
+        <i class="bi bi-calendar-check"></i><span>Daily Summary</span>
+      </a>
+      <a href="{{ url_for('expenses') }}" class="sb-link {% if 'expense' in request.endpoint %}active{% endif %}">
+        <i class="bi bi-wallet2"></i><span>Expenses</span>
+      </a>
+
+      {% if current_user.is_super_admin() %}
+      <div class="sb-section-label">Admin</div>
+      <a href="{{ url_for('admin_users') }}" class="sb-link {% if request.endpoint == 'admin_users' %}active{% endif %}">
+        <i class="bi bi-person-badge"></i><span>Users</span>
+      </a>
+      <a href="{{ url_for('activity_logs') }}" class="sb-link {% if request.endpoint == 'activity_logs' %}active{% endif %}">
+        <i class="bi bi-journal-text"></i><span>Activity Logs</span>
+      </a>
+      <a href="{{ url_for('settings_page') }}" class="sb-link {% if request.endpoint == 'settings_page' %}active{% endif %}">
+        <i class="bi bi-gear"></i><span>Settings</span>
+      </a>
+      {% endif %}
+
+      <div class="sb-section-label">Account</div>
+      <a href="{{ url_for('change_password') }}" class="sb-link {% if request.endpoint == 'change_password' %}active{% endif %}">
+        <i class="bi bi-lock"></i><span>Change Password</span>
+      </a>
+      <a href="{{ url_for('product_labels') }}" class="sb-link {% if request.endpoint == 'product_labels' %}active{% endif %}">
+        <i class="bi bi-tags"></i><span>Print Labels</span>
+      </a>
+    </div>
+
+    <div class="sb-footer">
+      <div class="sb-user-info">
+        <div class="sb-user-avatar">{{ current_user.username[0].upper() }}</div>
+        <div>
+          <div class="sb-user-name">{{ current_user.full_name or current_user.username }}</div>
+          <div class="sb-user-role">{{ current_user.role.name.replace('_',' ').title() }}</div>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="sb-logout" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="sb-content" id="sbContent">
+    <!-- Top Bar -->
+    <div class="sb-topbar">
+      <button class="sb-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="sb-topbar-title">{% block page_title %}{% endblock %}</div>
+      <div class="sb-topbar-right">
+        <span class="sb-currency-badge">{{ settings.currency_symbol }}</span>
+        <!-- Stock alerts bell -->
+        <div class="position-relative" id="alertBellWrap" style="cursor:pointer" onclick="toggleAlertDropdown()">
+          <button class="sb-theme-btn" title="Stock Alerts">
+            <i class="bi bi-bell-fill" id="bellIcon"></i>
+          </button>
+          <span id="alertBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                style="font-size:9px;display:none">0</span>
+          <!-- Dropdown -->
+          <div id="alertDropdown" style="display:none;position:absolute;right:0;top:40px;width:300px;
+               background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius);
+               box-shadow:var(--card-shadow-hover);z-index:9999;overflow:hidden">
+            <div style="padding:10px 14px;font-weight:700;border-bottom:1px solid var(--border-color);font-size:13px">
+              <i class="bi bi-bell me-2"></i>Stock Alerts
+            </div>
+            <div id="alertList" style="max-height:280px;overflow-y:auto;padding:8px"></div>
+          </div>
+        </div>
+        <a href="{{ url_for('pos_text') }}" class="btn btn-sm btn-primary me-2">
+          <i class="bi bi-plus-lg"></i> New Sale
+        </a>
+        <button class="sb-theme-btn" onclick="toggleTheme()" title="Toggle Dark/Light">
+          <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="px-3 pt-2">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              <i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <div class="sb-main-content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('sbContent').classList.toggle('expanded');
+}
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    document.getElementById('themeIcon').className = next === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+    localStorage.setItem('sb-theme', next);
+}
+// Restore theme
+(function() {
+    const saved = localStorage.getItem('sb-theme');
+    if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        const icon = document.getElementById('themeIcon');
+        if (icon) icon.className = saved === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+    }
+})();
+
+// Alert Bell
+let alertOpen = false;
+async function toggleAlertDropdown() {
+    const dropdown = document.getElementById('alertDropdown');
+    alertOpen = !alertOpen;
+    dropdown.style.display = alertOpen ? 'block' : 'none';
+    if (alertOpen) {
+        const list = document.getElementById('alertList');
+        list.innerHTML = '<div class="text-center text-muted py-3" style="font-size:13px">Loading…</div>';
+        try {
+            const res  = await fetch('/api/stock-alerts');
+            const data = await res.json();
+            let html = '';
+            data.out_of_stock.forEach(p => {
+                html += `<div style="padding:7px 10px;border-bottom:1px solid var(--border-color);font-size:12px">
+                  <i class="bi bi-x-circle-fill text-danger me-1"></i>
+                  <strong>${p.name}</strong> — OUT OF STOCK
+                </div>`;
+            });
+            data.low_stock.filter(p => p.stock > 0).forEach(p => {
+                html += `<div style="padding:7px 10px;border-bottom:1px solid var(--border-color);font-size:12px">
+                  <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+                  <strong>${p.name}</strong> — ${p.stock} left (min ${p.threshold})
+                </div>`;
+            });
+            data.expired.forEach(p => {
+                html += `<div style="padding:7px 10px;border-bottom:1px solid var(--border-color);font-size:12px">
+                  <i class="bi bi-clock-history text-danger me-1"></i>
+                  <strong>${p.name}</strong> — EXPIRED ${p.expiry}
+                </div>`;
+            });
+            data.expiring_soon.forEach(p => {
+                html += `<div style="padding:7px 10px;border-bottom:1px solid var(--border-color);font-size:12px">
+                  <i class="bi bi-calendar-x text-info me-1"></i>
+                  <strong>${p.name}</strong> — Expires ${p.expiry}
+                </div>`;
+            });
+            list.innerHTML = html || '<div class="text-center text-success py-3" style="font-size:13px"><i class="bi bi-check-circle me-1"></i>All good!</div>';
+        } catch(e) {
+            list.innerHTML = '<div class="text-center text-muted py-3" style="font-size:13px">Error loading alerts.</div>';
+        }
+    }
+}
+document.addEventListener('click', function(e) {
+    if (!document.getElementById('alertBellWrap')?.contains(e.target)) {
+        document.getElementById('alertDropdown').style.display = 'none';
+        alertOpen = false;
+    }
+});
+// Load badge count
+(async function() {
+    try {
+        const res  = await fetch('/api/stock-alerts');
+        const data = await res.json();
+        const count = data.out_of_stock.length + data.expired.length + data.expiring_soon.length;
+        if (count > 0) {
+            const badge = document.getElementById('alertBadge');
+            badge.textContent = count;
+            badge.style.display = 'inline';
+            document.getElementById('bellIcon').className = 'bi bi-bell-fill text-warning';
+        }
+    } catch(e) {}
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Purchases{% endblock %}
+{% block page_title %}Purchase Orders{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a href="{{ url_for('add_purchase') }}" class="btn btn-primary"><i class="bi bi-cart-plus me-1"></i>New Purchase Order</a>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table mb-0">
+    <thead><tr><th>Ref No</th><th>Supplier</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for p in purchases %}
+      <tr>
+        <td class="fw-bold" style="color:var(--brand-accent)">{{ p.reference_no }}</td>
+        <td>{{ p.supplier.name if p.supplier else 'Direct' }}</td>
+        <td>{{ p.items|length }}</td>
+        <td class="fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(p.total_amount) }}</td>
+        <td><span class="status-badge status-completed">{{ p.status.title() }}</span></td>
+        <td style="font-size:12px;color:var(--text-muted)">{{ p.created_at.strftime('%d %b %Y') }}</td>
+        <td><a href="{{ url_for('view_purchase', purchase_id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7"><div class="empty-state"><i class="bi bi-cart"></i><p>No purchase orders yet.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% endblock %}

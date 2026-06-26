@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <form class="d-flex gap-2 flex-wrap" method="GET">
+    <div class="pos-search-bar">
+      <i class="bi bi-search"></i>
+      <input name="search" class="form-control" placeholder="Search products..." value="{{ search }}" style="min-width:220px">
+    </div>
+    <select name="category" class="form-select" style="width:auto">
+      <option value="">All Categories</option>
+      {% for cat in categories %}
+      <option value="{{ cat.id }}" {% if category_id == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-funnel"></i> Filter</button>
+  </form>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('export_products_csv') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload"></i> Import CSV</button>
+    <a href="{{ url_for('add_product') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Product</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr>
+          <th>Product</th><th>SKU/Barcode</th><th>Category</th><th>Cost</th><th>Price</th><th>Tax%</th><th>Stock</th><th>Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                {% if product.image %}
+                <img src="/static/uploads/{{ product.image }}" style="width:36px;height:36px;border-radius:6px;object-fit:cover">
+                {% else %}
+                <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-surface2);display:flex;align-items:center;justify-content:center;color:var(--text-muted)"><i class="bi bi-box"></i></div>
+                {% endif %}
+                <div>
+                  <div class="fw-bold" style="font-size:13px">{{ product.name }}</div>
+                  {% if product.variant_name %}<div style="font-size:11px;color:var(--text-muted)">{{ product.variant_name }}</div>{% endif %}
+                  {% if product.expiry_date %}
+                  <div class="{% if (product.expiry_date - now.date()).days < 30 %}expiry-soon{% else %}text-muted{% endif %}" style="font-size:11px">
+                    <i class="bi bi-clock"></i> Exp: {{ product.expiry_date.strftime('%d %b %Y') }}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td style="font-size:12px;color:var(--text-muted)">
+              {{ product.sku or '—' }}<br>{{ product.barcode or '—' }}
+            </td>
+            <td><span class="badge bg-secondary">{{ product.category.name if product.category else '—' }}</span></td>
+            <td>{{ settings.currency_symbol }}{{ "%.2f"|format(product.cost_price) }}</td>
+            <td class="fw-bold" style="color:var(--brand-accent)">{{ settings.currency_symbol }}{{ "%.2f"|format(product.selling_price) }}</td>
+            <td>{{ product.tax_percent }}%</td>
+            <td>
+              {% if product.is_low_stock() %}
+              <span class="low-stock-badge">{{ product.stock_quantity }}</span>
+              {% else %}
+              <span class="text-success fw-bold">{{ product.stock_quantity }}</span>
+              {% endif %}
+            </td>
+            <td><span class="status-badge {% if product.active %}status-completed{% else %}status-returned{% endif %}">{{ 'Active' if product.active else 'Inactive' }}</span></td>
+            <td>
+              <div class="d-flex gap-1">
+                <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                <a href="{{ url_for('product_barcode', product_id=product.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Barcode"><i class="bi bi-upc"></i></a>
+                <a href="{{ url_for('product_qrcode', product_id=product.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="QR"><i class="bi bi-qr-code"></i></a>
+                {% if current_user.is_super_admin() %}
+                <form method="POST" action="{{ url_for('delete_product', product_id=product.id) }}" onsubmit="return confirm('Deactivate this product?')">
+                  <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9"><div class="empty-state"><i class="bi bi-box-seam"></i><p>No products found. <a href="{{ url_for('add_product') }}">Add one!</a></p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
+      <div class="modal-header" style="border-color:var(--border-color)">
+        <h5 class="modal-title">Import Products CSV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">CSV columns: <code>name, sku, barcode, category, brand, cost_price, selling_price, tax_percent, stock_quantity, low_stock_threshold, description</code></p>
+        <form method="POST" action="{{ url_for('import_products_csv') }}" enctype="multipart/form-data">
+          <input type="file" name="csv_file" class="form-control mb-3" accept=".csv" required>
+          <button type="submit" class="btn btn-primary w-100">Import</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

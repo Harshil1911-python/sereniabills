@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }} — History{% endblock %}
+{% block page_title %}Purchase History — {{ customer.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h5 class="mb-0 fw-bold">{{ customer.name }}</h5>
+    <div style="font-size:13px;color:var(--text-muted)">{{ customer.phone }} | {{ customer.email }}</div>
+  </div>
+  <a href="{{ url_for('customers') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-sm-4"><div class="stat-card"><div class="stat-card-icon indigo"><i class="bi bi-receipt"></i></div><div class="stat-card-value">{{ sales|length }}</div><div class="stat-card-label">Total Orders</div></div></div>
+  <div class="col-sm-4"><div class="stat-card"><div class="stat-card-icon green"><i class="bi bi-currency-rupee"></i></div><div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(sales|sum(attribute='grand_total')) }}</div><div class="stat-card-label">Total Spent</div></div></div>
+  <div class="col-sm-4"><div class="stat-card"><div class="stat-card-icon red"><i class="bi bi-exclamation-circle"></i></div><div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(customer.outstanding_balance) }}</div><div class="stat-card-label">Outstanding</div></div></div>
+</div>
+<div class="card">
+  <div class="card-header"><i class="bi bi-clock-history me-2"></i>Purchase History</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Invoice</th><th>Date</th><th>Items</th><th>Total</th><th>Paid</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for sale in sales %}
+          <tr>
+            <td class="fw-bold" style="color:var(--brand-accent)">{{ sale.invoice_number }}</td>
+            <td style="font-size:12px">{{ sale.created_at.strftime('%d %b %Y, %H:%M') }}</td>
+            <td>{{ sale.items|length }}</td>
+            <td class="fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(sale.grand_total) }}</td>
+            <td>{{ settings.currency_symbol }}{{ "%.2f"|format(sale.paid_amount) }}</td>
+            <td><span class="status-badge status-{{ sale.status }}">{{ sale.status.title() }}</span></td>
+            <td><a href="{{ url_for('view_invoice', sale_id=sale.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No purchase history.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

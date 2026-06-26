@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% block title %}Photo POS{% endblock %}
+{% block page_title %}Photo POS — Touch Billing{% endblock %}
+
+{% block content %}
+<div class="pos-wrapper">
+  <!-- LEFT: Product Grid -->
+  <div class="pos-products d-flex flex-column gap-2" style="min-width:0">
+
+    <!-- Top Controls -->
+    <div class="card">
+      <div class="card-body py-2 px-3">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-4">
+            <div class="pos-search-bar">
+              <i class="bi bi-search"></i>
+              <input type="text" id="photoSearch" class="form-control" placeholder="Search products..." autocomplete="off">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <select id="customerSelect" class="form-select">
+              <option value="">Walk-in Customer</option>
+              {% for c in customers %}
+              <option value="{{ c.id }}">{{ c.name }} {% if c.phone %}({{ c.phone }}){% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <select id="paymentMethod" class="form-select">
+              <option value="Cash">Cash</option>
+              <option value="Card">Card / UPI</option>
+              <option value="UPI">UPI</option>
+              <option value="Credit">Credit / Due</option>
+            </select>
+          </div>
+          <div class="col-md-3 d-flex gap-2">
+            <a href="/display/{{ current_user.id }}" target="_blank" class="btn btn-outline-secondary btn-sm" title="Customer Display">
+              <i class="bi bi-display"></i>
+            </a>
+            <button class="btn btn-sm btn-outline-warning" onclick="holdBill()"><i class="bi bi-pause-circle"></i> Hold</button>
+            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#heldBillsModal"><i class="bi bi-play-circle"></i></button>
+          </div>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="d-flex gap-2 flex-wrap mt-2" id="categoryPills">
+          <button class="btn btn-sm btn-primary category-filter" data-cat="">All</button>
+          {% for cat in categories %}
+          <button class="btn btn-sm btn-outline-secondary category-filter" data-cat="{{ cat.id }}">{{ cat.name }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Grid -->
+    <div class="flex-grow-1" style="overflow-y:auto; min-height:0">
+      <div class="photo-pos-grid" id="productGrid">
+        {% for product in products %}
+        <div class="photo-product-card {% if product.stock_quantity <= 0 %}out-of-stock{% endif %}"
+             data-pid="{{ product.id }}"
+             data-name="{{ product.name | e }}"
+             data-price="{{ product.selling_price }}"
+             data-tax="{{ product.tax_percent }}"
+             data-stock="{{ product.stock_quantity }}"
+             data-image="{{ product.image or '' }}"
+             data-catid="{{ product.category_id or '' }}"
+             data-sku="{{ product.sku or '' }}">
+
+          {% if product.stock_quantity <= 0 %}
+            <span class="stock-badge">OUT</span>
+          {% elif product.stock_quantity <= product.low_stock_threshold %}
+            <span class="stock-badge" style="background:var(--warning)">LOW</span>
+          {% endif %}
+
+          {% if product.image %}
+            <img src="/static/uploads/{{ product.image }}" alt="{{ product.name }}"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="product-img-placeholder" style="display:none"><i class="bi bi-box"></i></div>
+          {% else %}
+            <div class="product-img-placeholder"><i class="bi bi-box"></i></div>
+          {% endif %}
+
+          <div class="product-name">{{ product.name }}</div>
+          <div class="product-price">{{ settings.currency_symbol }}{{ "%.2f"|format(product.selling_price) }}</div>
+          <div class="product-stock">Stock: {{ product.stock_quantity }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div id="noResults" class="empty-state" style="display:none">
+        <i class="bi bi-search"></i><p>No products match your search.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Cart -->
+  <div class="pos-cart">
+    <div class="pos-cart-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-cart3 me-2"></i>Cart</span>
+      <div class="d-flex gap-2 align-items-center">
+        <span id="cartCount" class="badge bg-primary">0 items</span>
+        <button class="btn btn-sm btn-outline-danger" onclick="clearCart()" title="Clear cart"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>
+
+    <!-- Cart Items - FIXED: always present, shown/hidden via CSS -->
+    <div class="pos-cart-items" id="cartItems" style="overflow-y:auto;flex:1">
+      <!-- Items rendered here by JS -->
+    </div>
+
+    <!-- Empty State - FIXED: separate from cartItems -->
+    <div id="cartEmptyMsg" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);padding:20px;text-align:center">
+      <i class="bi bi-cart-x" style="font-size:40px;opacity:.3;margin-bottom:10px"></i>
+      <p style="margin:0;font-size:14px">Tap a product card to add it</p>
+    </div>
+
+    <!-- Totals -->
+    <div class="pos-totals" style="flex-shrink:0">
+      <div class="pos-total-row"><span>Subtotal</span><span>{{ settings.currency_symbol }}<span id="subtotal">0.00</span></span></div>
+      <div class="pos-total-row"><span>Tax (GST)</span><span>{{ settings.currency_symbol }}<span id="taxTotal">0.00</span></span></div>
+      <div class="pos-total-row">
+        <span>Bill Discount</span>
+        <div class="d-flex align-items-center gap-1">
+          {{ settings.currency_symbol }}
+          <input type="number" id="billDiscount" class="form-control form-control-sm"
+                 style="width:78px;text-align:right" value="0" min="0" step="0.01" oninput="recalcTotals()">
+        </div>
+      </div>
+      <div class="pos-total-row grand">
+        <span>Grand Total</span>
+        <span>{{ settings.currency_symbol }}<span id="grandTotal">0.00</span></span>
+      </div>
+    </div>
+
+    <!-- Payment -->
+    <div class="px-3 py-2" style="border-top:1px solid var(--border-color);flex-shrink:0">
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="form-label mb-1" style="font-size:12px">Amount Paid</label>
+          <input type="number" id="amountPaid" class="form-control form-control-sm" placeholder="0.00" step="0.01" min="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label mb-1" style="font-size:12px">Change Due</label>
+          <div id="changeDue" class="fw-bold" style="color:var(--success);font-size:15px;padding-top:6px">{{ settings.currency_symbol }}0.00</div>
+        </div>
+      </div>
+      <div class="mt-2">
+        <label class="form-label mb-1" style="font-size:12px">Notes</label>
+        <input type="text" id="invoiceNotes" class="form-control form-control-sm" placeholder="Invoice notes...">
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="pos-actions" style="flex-shrink:0">
+      <button class="btn btn-success flex-grow-1 fw-bold" onclick="checkout('completed')" style="font-size:15px;padding:12px">
+        <i class="bi bi-check-lg me-1"></i> Checkout
+      </button>
+      <button class="btn btn-outline-secondary" onclick="checkout('draft')" title="Save Draft">
+        <i class="bi bi-file-earmark"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Held Bills Modal -->
+<div class="modal fade" id="heldBillsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
+      <div class="modal-header" style="border-color:var(--border-color)">
+        <h5 class="modal-title"><i class="bi bi-pause-circle me-2"></i>Held Bills</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="heldBillsBody">
+        <div class="text-center text-muted py-4">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
+      <div class="modal-body text-center py-5">
+        <div style="font-size:64px;color:var(--success);margin-bottom:12px"><i class="bi bi-check-circle-fill"></i></div>
+        <h4 class="fw-bold mb-1">Sale Completed!</h4>
+        <div id="successInfo" style="color:var(--text-muted);margin-bottom:20px;font-size:14px"></div>
+        <div class="d-flex gap-2 justify-content-center">
+          <button class="btn btn-primary" id="printBtn"><i class="bi bi-printer me-1"></i>Print</button>
+          <button class="btn btn-outline-secondary" id="pdfBtn"><i class="bi bi-file-pdf me-1"></i>PDF</button>
+          <button class="btn btn-success" onclick="newBill()"><i class="bi bi-plus-lg me-1"></i>New Bill</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Quantity Modal -->
+<div class="modal fade" id="qtyModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
+      <div class="modal-header" style="border-color:var(--border-color)">
+        <h6 class="modal-title" id="qtyModalTitle">Set Quantity</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="number" id="qtyModalInput" class="form-control form-control-lg text-center fw-bold" min="1" value="1">
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color)">
+        <button class="btn btn-primary w-100" onclick="confirmQtyModal()">Set Quantity</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = "{{ settings.currency_symbol }}";
+let cart = [];
+let resumeInvoiceNumber = null;
+let qtyModalTargetIdx = null;
+
+// ─── PRODUCT CARD CLICK (FIXED) ──────────────────────────────────
+// Use event delegation on the grid — no inline onclick, no stale references
+document.getElementById('productGrid').addEventListener('click', function(e) {
+  const card = e.target.closest('.photo-product-card');
+  if (!card) return;
+
+  const stock = parseInt(card.dataset.stock);
+  if (stock <= 0 && !confirm(`${card.dataset.name} is out of stock. Add anyway?`)) return;
+
+  addToCart({
+    product_id: parseInt(card.dataset.pid),
+    product_name: card.dataset.name,
+    unit_price: parseFloat(card.dataset.price),
+    quantity: 1,
+    discount: 0,
+    tax_percent: parseFloat(card.dataset.tax),
+    image: card.dataset.image
+  });
+
+  // Visual flash
+  card.classList.add('card-flash');
+  setTimeout(() => card.classList.remove('card-flash'), 400);
+});
+
+// ─── CART CORE ────────────────────────────────────────────────────
+function addToCart(item) {
+  const existing = cart.find(i => i.product_id === item.product_id);
+  if (existing) {
+    existing.quantity++;
+  } else {
+    cart.push({ ...item });
+  }
+  renderCart();
+  pushCartToDisplay();
+}
+
+function renderCart() {
+  const cartItems = document.getElementById('cartItems');
+  const emptyMsg  = document.getElementById('cartEmptyMsg');
+  document.getElementById('cartCount').textContent = cart.length + ' item' + (cart.length !== 1 ? 's' : '');
+
+  if (!cart.length) {
+    cartItems.style.display = 'none';
+    emptyMsg.style.display  = 'flex';
+    recalcTotals();
+    return;
+  }
+
+  cartItems.style.display = 'block';
+  emptyMsg.style.display  = 'none';
+
+  // Build HTML string — no DOM node reuse issues
+  cartItems.innerHTML = cart.map((item, idx) => {
+    const lineSub   = item.unit_price * item.quantity - (item.discount || 0);
+    const lineTax   = lineSub * (item.tax_percent / 100);
+    const lineTotal = lineSub + lineTax;
+    return `
+    <div class="pos-cart-item" data-idx="${idx}">
+      <div style="flex:1;min-width:0">
+        <div class="pos-cart-item-name">${escHtml(item.product_name)}</div>
+        <div class="pos-cart-item-price">
+          ${CURRENCY}${item.unit_price.toFixed(2)}
+          ${item.tax_percent > 0 ? `<span class="text-muted ms-1" style="font-size:11px">+${item.tax_percent}% tax</span>` : ''}
+        </div>
+        <div class="pos-cart-item-controls">
+          <button class="qty-btn" onclick="changeQty(${idx},-1)"><i class="bi bi-dash"></i></button>
+          <input class="qty-input" type="number" value="${item.quantity}" min="1"
+                 onchange="setQty(${idx},this.value)" onclick="this.select()">
+          <button class="qty-btn" onclick="changeQty(${idx},1)"><i class="bi bi-plus"></i></button>
+          <button class="qty-btn ms-1" onclick="openQtyModal(${idx})" title="Set qty" style="font-size:11px;width:auto;padding:2px 7px">×Qty</button>
+        </div>
+        <div style="margin-top:4px">
+          <input type="number" class="form-control form-control-sm d-inline-block"
+                 style="width:80px;font-size:12px" placeholder="Disc" step="0.01" min="0"
+                 value="${item.discount > 0 ? item.discount.toFixed(2) : ''}"
+                 onchange="setDiscount(${idx},this.value)">
+          <span style="font-size:11px;color:var(--text-muted)">item disc</span>
+        </div>
+      </div>
+      <div class="d-flex flex-column align-items-end justify-content-between" style="flex-shrink:0;gap:6px">
+        <i class="bi bi-x-circle pos-cart-remove" onclick="removeItem(${idx})"></i>
+        <div class="pos-cart-item-total">${CURRENCY}${lineTotal.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  recalcTotals();
+}
+
+// ─── CART ITEM ACTIONS ────────────────────────────────────────────
+function changeQty(idx, delta) {
+  if (!cart[idx]) return;
+  cart[idx].quantity = Math.max(1, cart[idx].quantity + delta);
+  renderCart(); pushCartToDisplay();
+}
+function setQty(idx, val) {
+  if (!cart[idx]) return;
+  cart[idx].quantity = Math.max(1, parseInt(val) || 1);
+  renderCart(); pushCartToDisplay();
+}
+function setDiscount(idx, val) {
+  if (!cart[idx]) return;
+  cart[idx].discount = Math.max(0, parseFloat(val) || 0);
+  renderCart(); pushCartToDisplay();
+}
+function removeItem(idx) {
+  cart.splice(idx, 1);
+  renderCart(); pushCartToDisplay();
+}
+function clearCart() {
+  if (cart.length && !confirm('Clear all cart items?')) return;
+  cart = [];
+  resumeInvoiceNumber = null;
+  document.getElementById('billDiscount').value = 0;
+  document.getElementById('amountPaid').value = '';
+  renderCart(); pushCartToDisplay();
+}
+
+// ─── QTY MODAL ───────────────────────────────────────────────────
+function openQtyModal(idx) {
+  qtyModalTargetIdx = idx;
+  document.getElementById('qtyModalTitle').textContent = 'Qty — ' + cart[idx].product_name;
+  document.getElementById('qtyModalInput').value = cart[idx].quantity;
+  const m = new bootstrap.Modal(document.getElementById('qtyModal'));
+  m.show();
+  setTimeout(() => document.getElementById('qtyModalInput').select(), 300);
+}
+function confirmQtyModal() {
+  const val = parseInt(document.getElementById('qtyModalInput').value) || 1;
+  setQty(qtyModalTargetIdx, val);
+  bootstrap.Modal.getInstance(document.getElementById('qtyModal')).hide();
+}
+document.getElementById('qtyModalInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmQtyModal();
+});
+
+// ─── TOTALS ───────────────────────────────────────────────────────
+function recalcTotals() {
+  let subtotal = 0, taxTotal = 0;
+  cart.forEach(i => {
+    const sub = i.unit_price * i.quantity - (i.discount || 0);
+    subtotal += sub;
+    taxTotal += sub * (i.tax_percent / 100);
+  });
+  const billDisc = parseFloat(document.getElementById('billDiscount').value) || 0;
+  const grand    = Math.max(0, subtotal + taxTotal - billDisc);
+
+  document.getElementById('subtotal').textContent  = subtotal.toFixed(2);
+  document.getElementById('taxTotal').textContent  = taxTotal.toFixed(2);
+  document.getElementById('grandTotal').textContent = grand.toFixed(2);
+
+  const paid   = parseFloat(document.getElementById('amountPaid').value) || 0;
+  const change = paid - grand;
+  document.getElementById('changeDue').textContent = CURRENCY + (change >= 0 ? change.toFixed(2) : '0.00');
+  if (change >= 0 && paid > 0) {
+    document.getElementById('changeDue').style.color = 'var(--success)';
+  } else {
+    document.getElementById('changeDue').style.color = 'var(--danger)';
+  }
+}
+document.getElementById('amountPaid').addEventListener('input', recalcTotals);
+document.getElementById('billDiscount').addEventListener('input', recalcTotals);
+
+// ─── SEARCH & FILTER ──────────────────────────────────────────────
+let activeCat = '';
+document.getElementById('photoSearch').addEventListener('input', function() {
+  filterProducts(activeCat, this.value.trim().toLowerCase());
+});
+
+document.getElementById('categoryPills').addEventListener('click', function(e) {
+  const btn = e.target.closest('.category-filter');
+  if (!btn) return;
+  document.querySelectorAll('.category-filter').forEach(b => {
+    b.classList.remove('active','btn-primary');
+    b.classList.add('btn-outline-secondary');
+  });
+  btn.classList.add('active','btn-primary');
+  btn.classList.remove('btn-outline-secondary');
+  activeCat = btn.dataset.cat;
+  filterProducts(activeCat, document.getElementById('photoSearch').value.trim().toLowerCase());
+});
+
+function filterProducts(catId, search) {
+  let visible = 0;
+  document.querySelectorAll('.photo-product-card').forEach(card => {
+    const matchCat    = !catId || card.dataset.catid === catId;
+    const matchSearch = !search ||
+      card.dataset.name.toLowerCase().includes(search) ||
+      card.dataset.sku.toLowerCase().includes(search);
+    const show = matchCat && matchSearch;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+}
+
+// ─── CUSTOMER DISPLAY PUSH ────────────────────────────────────────
+async function pushCartToDisplay() {
+  const grand    = parseFloat(document.getElementById('grandTotal').textContent) || 0;
+  const sub      = parseFloat(document.getElementById('subtotal').textContent)   || 0;
+  const tax      = parseFloat(document.getElementById('taxTotal').textContent)   || 0;
+  const disc     = parseFloat(document.getElementById('billDiscount').value)     || 0;
+  const payload  = {
+    items: cart.map(i => ({
+      product_name: i.product_name,
+      quantity:     i.quantity,
+      unit_price:   i.unit_price,
+      tax_percent:  i.tax_percent,
+      line_total:   (((i.unit_price * i.quantity) - (i.discount||0)) * (1 + i.tax_percent/100)).toFixed(2),
+      image:        i.image
+    })),
+    subtotal: sub.toFixed(2), tax: tax.toFixed(2),
+    discount: disc.toFixed(2), total: grand.toFixed(2)
+  };
+  try {
+    await fetch('/api/cart/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) {}
+}
+
+// ─── CHECKOUT ─────────────────────────────────────────────────────
+async function checkout(status = 'completed') {
+  if (!cart.length) { alert('Cart is empty!'); return; }
+  const grand = parseFloat(document.getElementById('grandTotal').textContent) || 0;
+  const paid  = parseFloat(document.getElementById('amountPaid').value) || grand;
+  const payload = {
+    items:           cart,
+    customer_id:     document.getElementById('customerSelect').value || null,
+    payment_method:  document.getElementById('paymentMethod').value,
+    discount_amount: parseFloat(document.getElementById('billDiscount').value) || 0,
+    paid_amount:     paid,
+    notes:           document.getElementById('invoiceNotes').value,
+    status:          status,
+    resume_invoice:  resumeInvoiceNumber || null
+  };
+  try {
+    const res  = await fetch('/api/sales/checkout', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    if (status === 'completed') {
+      document.getElementById('successInfo').textContent = `Invoice: ${data.invoice_number} | Total: ${CURRENCY}${grand.toFixed(2)}`;
+      document.getElementById('printBtn').onclick = () => window.open(`/invoices/${data.sale_id}`, '_blank');
+      document.getElementById('pdfBtn').onclick   = () => window.open(`/invoices/${data.sale_id}/pdf`, '_blank');
+      new bootstrap.Modal(document.getElementById('successModal')).show();
+    } else if (status === 'held') {
+      alert(`Bill held as ${data.invoice_number}`);
+      clearCart();
+    } else {
+      alert(`Draft saved as ${data.invoice_number}`);
+    }
+  } catch(e) { alert('Checkout failed. Please try again.'); console.error(e); }
+}
+
+function holdBill() { checkout('held'); }
+
+function newBill() {
+  bootstrap.Modal.getInstance(document.getElementById('successModal'))?.hide();
+  clearCart();
+}
+
+// ─── HELD BILLS ───────────────────────────────────────────────────
+document.getElementById('heldBillsModal').addEventListener('show.bs.modal', loadHeldBills);
+
+async function loadHeldBills() {
+  const body = document.getElementById('heldBillsBody');
+  body.innerHTML = '<div class="text-center text-muted py-4">Loading...</div>';
+  try {
+    const held = await fetch('/api/sales/held').then(r => r.json());
+    if (!held.length) { body.innerHTML = '<div class="text-center text-muted py-4">No held bills.</div>'; return; }
+    body.innerHTML = `<div class="table-responsive"><table class="table mb-0">
+      <thead><tr><th>Invoice</th><th>Items</th><th>Total</th><th>Time</th><th></th></tr></thead><tbody>
+      ${held.map(h => `<tr>
+        <td class="fw-bold" style="color:var(--brand-accent)">${h.invoice_number}</td>
+        <td>${h.items.length} items</td>
+        <td class="fw-bold">${CURRENCY}${h.grand_total.toFixed(2)}</td>
+        <td class="text-muted" style="font-size:12px">${h.created_at}</td>
+        <td><button class="btn btn-sm btn-success me-1" onclick='resumeHeld(${JSON.stringify(h)})'>Resume</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteHeld(${h.id},this)">Del</button></td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
+  } catch(e) { body.innerHTML = '<div class="text-center text-danger py-4">Error loading held bills.</div>'; }
+}
+
+function resumeHeld(h) {
+  cart = h.items.map(i => ({
+    product_id: i.product_id, product_name: i.product_name,
+    unit_price: i.unit_price, quantity: i.quantity,
+    discount: i.discount || 0, tax_percent: i.tax_percent, image: ''
+  }));
+  resumeInvoiceNumber = h.invoice_number;
+  if (h.customer_id) document.getElementById('customerSelect').value = h.customer_id;
+  document.getElementById('billDiscount').value = h.discount_amount || 0;
+  renderCart();
+  bootstrap.Modal.getInstance(document.getElementById('heldBillsModal')).hide();
+  pushCartToDisplay();
+}
+
+async function deleteHeld(id, btn) {
+  if (!confirm('Delete this held bill?')) return;
+  await fetch(`/api/sales/held/${id}/delete`, { method: 'POST' });
+  btn.closest('tr').remove();
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  switch(e.key) {
+    case 'F2': e.preventDefault(); document.getElementById('photoSearch').focus(); break;
+    case 'F4': e.preventDefault(); checkout('completed'); break;
+    case 'F6': e.preventDefault(); holdBill(); break;
+    case 'F8': e.preventDefault(); clearCart(); break;
+  }
+});
+
+// init
+renderCart();
+</script>
+
+<style>
+.card-flash { border-color: var(--success) !important; box-shadow: 0 0 0 3px rgba(16,185,129,.25) !important; transition: all .1s; }
+.pos-cart { display:flex; flex-direction:column; }
+</style>
+{% endblock %}

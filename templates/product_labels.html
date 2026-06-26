@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Product Labels{% endblock %}
+{% block page_title %}Print Product Labels{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+  <div class="text-muted" style="font-size:13px">
+    {{ products|length }} product(s) selected for label printing.
+  </div>
+  <div class="d-flex gap-2">
+    <button onclick="window.print()" class="btn btn-primary btn-sm">
+      <i class="bi bi-printer me-1"></i>Print All Labels
+    </button>
+    <a href="{{ url_for('products') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+<div class="alert alert-info no-print" style="font-size:13px">
+  <i class="bi bi-info-circle me-2"></i>
+  Labels are formatted for A4 printing. Use your browser's print dialog and set margins to "None" for best results.
+  Select specific products from the Products page by appending <code>?ids=1&ids=2</code> to the URL.
+</div>
+
+<div id="labelsGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px">
+  {% for product in products %}
+  <div class="label-card" style="
+    border:1px solid #ccc;
+    border-radius:6px;
+    padding:10px 8px;
+    text-align:center;
+    background:#fff;
+    color:#000;
+    page-break-inside:avoid;
+    font-family:monospace;
+  ">
+    <div style="font-size:11px;font-weight:700;margin-bottom:4px;word-break:break-word">
+      {{ product.name[:28] }}
+    </div>
+    {% if product.variant_name %}
+    <div style="font-size:10px;color:#666;margin-bottom:3px">{{ product.variant_name }}</div>
+    {% endif %}
+
+    <!-- Barcode image (if available) -->
+    {% if product.barcode %}
+    <img src="{{ url_for('product_barcode', product_id=product.id) }}"
+         style="width:100%;max-height:45px;object-fit:contain;margin:4px 0"
+         onerror="this.style.display='none'">
+    <div style="font-size:9px;color:#555;letter-spacing:1px">{{ product.barcode }}</div>
+    {% else %}
+    <div style="font-size:10px;color:#999;margin:4px 0">SKU: {{ product.sku or product.id }}</div>
+    {% endif %}
+
+    <div style="font-size:14px;font-weight:900;margin-top:6px;color:#000">
+      {{ settings.currency_symbol }}{{ "%.2f"|format(product.selling_price) }}
+    </div>
+    {% if product.tax_percent > 0 %}
+    <div style="font-size:9px;color:#777">incl. {{ product.tax_percent }}% GST</div>
+    {% endif %}
+    <div style="font-size:9px;color:#999;margin-top:2px">{{ settings.company_name }}</div>
+  </div>
+  {% else %}
+  <div class="empty-state col-span-4">
+    <i class="bi bi-tags"></i>
+    <p>No products to print labels for.</p>
+  </div>
+  {% endfor %}
+</div>
+
+<style>
+@media print {
+  .no-print, .sb-sidebar, .sb-topbar { display:none !important; }
+  .sb-content { margin-left:0 !important; }
+  .sb-main-content { padding:0 !important; }
+  #labelsGrid {
+    grid-template-columns: repeat(4,1fr) !important;
+    gap:6px !important;
+    padding:4px !important;
+  }
+  .label-card {
+    border:1px solid #000 !important;
+    break-inside:avoid;
+  }
+  body { background:#fff !important; }
+}
+</style>
+{% endblock %}

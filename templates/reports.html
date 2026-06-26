@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block content %}
+<div class="row g-3">
+  {% set report_links = [
+    ('report_sales', 'bi-graph-up', 'Sales Report', 'Daily, weekly, monthly, yearly sales breakdown', 'indigo'),
+    ('report_products', 'bi-box-seam', 'Product Report', 'Top selling products by revenue and quantity', 'green'),
+    ('report_customers', 'bi-people', 'Customer Report', 'Customer spending and order history analysis', 'blue'),
+    ('report_inventory', 'bi-archive', 'Inventory Report', 'Stock levels, valuation, and low stock items', 'amber'),
+    ('report_profit', 'bi-graph-up-arrow', 'Profit Report', 'Revenue, cost, and profit margin analysis', 'purple'),
+    ('report_tax', 'bi-receipt-cutoff', 'Tax Report', 'GST and tax collection summary', 'red'),
+  ] %}
+  {% for endpoint, icon, title, desc, color in report_links %}
+  <div class="col-md-6 col-xl-4">
+    <a href="{{ url_for(endpoint) }}" class="text-decoration-none">
+      <div class="card" style="transition:all .2s" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+        <div class="card-body d-flex align-items-center gap-3 py-4">
+          <div class="stat-card-icon {{ color }}" style="width:52px;height:52px;font-size:24px"><i class="bi {{ icon }}"></i></div>
+          <div>
+            <div class="fw-bold fs-6" style="color:var(--text-primary)">{{ title }}</div>
+            <div style="font-size:12px;color:var(--text-muted)">{{ desc }}</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto" style="color:var(--text-muted)"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+
+  <div class="col-md-6 col-xl-4">
+    <a href="{{ url_for('export_report_csv', report_type='sales') }}" class="text-decoration-none">
+      <div class="card" style="transition:all .2s" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+        <div class="card-body d-flex align-items-center gap-3 py-4">
+          <div class="stat-card-icon green" style="width:52px;height:52px;font-size:24px"><i class="bi bi-download"></i></div>
+          <div>
+            <div class="fw-bold fs-6" style="color:var(--text-primary)">Export Sales CSV</div>
+            <div style="font-size:12px;color:var(--text-muted)">Download all sales data as CSV</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto" style="color:var(--text-muted)"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-6 col-xl-4">
+    <a href="{{ url_for('export_report_csv', report_type='inventory') }}" class="text-decoration-none">
+      <div class="card" style="transition:all .2s" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+        <div class="card-body d-flex align-items-center gap-3 py-4">
+          <div class="stat-card-icon amber" style="width:52px;height:52px;font-size:24px"><i class="bi bi-file-spreadsheet"></i></div>
+          <div>
+            <div class="fw-bold fs-6" style="color:var(--text-primary)">Export Inventory CSV</div>
+            <div style="font-size:12px;color:var(--text-muted)">Download full inventory data</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto" style="color:var(--text-muted)"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

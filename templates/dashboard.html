@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stock Alerts Banner (if any) -->
+<div id="stockAlertsBanner"></div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-graph-up-arrow"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(sales_today) }}</div>
+      <div class="stat-card-label">Sales Today</div>
+      <div class="stat-card-accent"><i class="bi bi-graph-up"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon blue"><i class="bi bi-calendar-week"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(sales_week) }}</div>
+      <div class="stat-card-label">Sales This Week</div>
+      <div class="stat-card-accent"><i class="bi bi-bar-chart"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon indigo"><i class="bi bi-calendar-month"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(sales_month) }}</div>
+      <div class="stat-card-label">Sales This Month</div>
+      <div class="stat-card-accent"><i class="bi bi-calendar-check"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon amber"><i class="bi bi-safe2"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.0f"|format(inventory_value) }}</div>
+      <div class="stat-card-label">Inventory Value</div>
+      <div class="stat-card-accent"><i class="bi bi-boxes"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon purple"><i class="bi bi-box-seam"></i></div>
+      <div class="stat-card-value">{{ total_products }}</div>
+      <div class="stat-card-label">Total Products</div>
+      <div class="stat-card-accent"><i class="bi bi-box-seam-fill"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon blue"><i class="bi bi-people"></i></div>
+      <div class="stat-card-value">{{ total_customers }}</div>
+      <div class="stat-card-label">Total Customers</div>
+      <div class="stat-card-accent"><i class="bi bi-person-heart"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-truck"></i></div>
+      <div class="stat-card-value">{{ total_suppliers }}</div>
+      <div class="stat-card-label">Total Suppliers</div>
+      <div class="stat-card-accent"><i class="bi bi-truck-front"></i></div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <a href="{{ url_for('inventory') }}" style="text-decoration:none">
+      <div class="stat-card" style="cursor:pointer">
+        <div class="stat-card-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+        <div class="stat-card-value">{{ low_stock_products|length }}</div>
+        <div class="stat-card-label">Low Stock Items</div>
+        <div class="stat-card-accent"><i class="bi bi-clipboard-x"></i></div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- Chart + Top Products Row -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-graph-up-arrow me-2"></i>Sales Analytics</span>
+        <div class="d-flex gap-2 align-items-center">
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-primary active" id="btn7d" onclick="loadChart(7)">7D</button>
+            <button type="button" class="btn btn-outline-secondary" id="btn14d" onclick="loadChart(14)">14D</button>
+            <button type="button" class="btn btn-outline-secondary" id="btn30d" onclick="loadChart(30)">30D</button>
+          </div>
+          <a href="{{ url_for('report_sales') }}" class="btn btn-sm btn-outline-secondary">
+            Full Report
+          </a>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="salesChart" height="90"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-trophy me-2"></i>Top Selling Products</span>
+        <a href="{{ url_for('report_products') }}" class="btn btn-sm btn-outline-secondary">All</a>
+      </div>
+      <div class="card-body p-0">
+        {% if top_products %}
+          {% for product in top_products %}
+          <div class="d-flex align-items-center justify-content-between px-3 py-2"
+               style="border-bottom:1px solid var(--border-color)">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge"
+                style="background:{% if loop.index==1 %}#f59e0b{% elif loop.index==2 %}#94a3b8{% elif loop.index==3 %}#b87333{% else %}var(--bg-surface2){% endif %};
+                       color:{% if loop.index<=3 %}#fff{% else %}var(--text-muted){% endif %};
+                       min-width:24px">{{ loop.index }}</span>
+              <span style="font-size:13px;font-weight:600">{{ product.product_name[:26] }}</span>
+            </div>
+            <span class="badge" style="background:rgba(99,102,241,.12);color:var(--brand-accent)">
+              {{ product.total_qty }} sold
+            </span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <i class="bi bi-bar-chart-line"></i>
+            <p>No sales data yet.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Bills + Quick Actions Row -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-receipt me-2"></i>Recent Bills</span>
+        <a href="{{ url_for('invoices') }}" class="btn btn-sm btn-outline-secondary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Invoice #</th><th>Customer</th><th>Amount</th>
+                <th>Method</th><th>Status</th><th>Time</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sale in recent_bills %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('view_invoice', sale_id=sale.id) }}"
+                     class="fw-bold" style="color:var(--brand-accent)">{{ sale.invoice_number }}</a>
+                </td>
+                <td>{{ sale.customer.name if sale.customer else 'Walk-in' }}</td>
+                <td class="fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(sale.grand_total) }}</td>
+                <td><span class="badge bg-secondary">{{ sale.payment_method }}</span></td>
+                <td>
+                  <span class="status-badge status-{{ sale.status }}">{{ sale.status.title() }}</span>
+                </td>
+                <td style="font-size:12px;color:var(--text-muted)">
+                  {{ sale.created_at.strftime('%d %b, %H:%M') }}
+                </td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <a href="{{ url_for('view_invoice', sale_id=sale.id) }}"
+                       class="btn btn-xs btn-outline-secondary" style="padding:2px 8px;font-size:11px">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{{ url_for('invoice_pdf', sale_id=sale.id) }}"
+                       class="btn btn-xs btn-outline-danger" style="padding:2px 8px;font-size:11px">
+                      <i class="bi bi-file-pdf"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                  No bills yet. <a href="{{ url_for('pos_text') }}">Create one!</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions + Low Stock -->
+  <div class="col-lg-4">
+    <!-- Quick Actions -->
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-lightning me-2"></i>Quick Actions</div>
+      <div class="card-body p-2">
+        <div class="row g-2">
+          <div class="col-6">
+            <a href="{{ url_for('pos_text') }}" class="btn btn-primary w-100 btn-sm py-2">
+              <i class="bi bi-keyboard d-block mb-1" style="font-size:18px"></i>Text POS
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="{{ url_for('pos_photo') }}" class="btn btn-success w-100 btn-sm py-2">
+              <i class="bi bi-grid-3x3-gap d-block mb-1" style="font-size:18px"></i>Photo POS
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="{{ url_for('add_product') }}" class="btn btn-outline-secondary w-100 btn-sm py-2">
+              <i class="bi bi-plus-circle d-block mb-1" style="font-size:18px"></i>Add Product
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="{{ url_for('daily_summary') }}" class="btn btn-outline-secondary w-100 btn-sm py-2">
+              <i class="bi bi-calendar-check d-block mb-1" style="font-size:18px"></i>Day Summary
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="{{ url_for('add_purchase') }}" class="btn btn-outline-secondary w-100 btn-sm py-2">
+              <i class="bi bi-cart-plus d-block mb-1" style="font-size:18px"></i>Purchase Order
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="{{ url_for('expenses') }}" class="btn btn-outline-secondary w-100 btn-sm py-2">
+              <i class="bi bi-wallet2 d-block mb-1" style="font-size:18px"></i>Add Expense
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="/display/{{ current_user.id }}" target="_blank"
+               class="btn btn-outline-secondary w-100 btn-sm py-2">
+              <i class="bi bi-display d-block mb-1" style="font-size:18px"></i>Customer Display
+            </a>
+          </div>
+          <div class="col-6">
+            <a href="{{ url_for('product_labels') }}" class="btn btn-outline-secondary w-100 btn-sm py-2">
+              <i class="bi bi-tags d-block mb-1" style="font-size:18px"></i>Print Labels
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Low Stock Alerts -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+          <i class="bi bi-exclamation-triangle text-danger me-2"></i>Low Stock
+        </span>
+        <a href="{{ url_for('inventory') }}" class="btn btn-sm btn-outline-secondary">Manage</a>
+      </div>
+      <div class="card-body p-0" style="max-height:220px;overflow-y:auto">
+        {% if low_stock_products %}
+          {% for product in low_stock_products[:10] %}
+          <div class="d-flex align-items-center justify-content-between px-3 py-2"
+               style="border-bottom:1px solid var(--border-color)">
+            <div style="min-width:0">
+              <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ product.name }}
+              </div>
+              <div style="font-size:11px;color:var(--text-muted)">
+                {{ product.category.name if product.category else '—' }}
+              </div>
+            </div>
+            <div class="text-end" style="flex-shrink:0;margin-left:8px">
+              <span class="low-stock-badge">{{ product.stock_quantity }}</span>
+              <div style="font-size:10px;color:var(--text-muted)">/ {{ product.low_stock_threshold }} min</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <i class="bi bi-check-circle text-success"></i>
+            <p>All stock levels healthy!</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Expiry Alerts -->
+{% set expiring = [] %}
+{% for p in low_stock_products %}{% endfor %}
+<div id="expirySection"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let salesChart = null;
+
+async function loadChart(days) {
+  // Update active button
+  ['7d','14d','30d'].forEach(d => {
+    const btn = document.getElementById('btn'+d);
+    btn.classList.toggle('btn-primary', parseInt(d) === days);
+    btn.classList.toggle('btn-outline-secondary', parseInt(d) !== days);
+    btn.classList.toggle('active', parseInt(d) === days);
+  });
+
+  const res  = await fetch(`/api/dashboard/chart?days=${days}`);
+  const data = await res.json();
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+
+  if (salesChart) salesChart.destroy();
+
+  const ctx  = document.getElementById('salesChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0, 'rgba(99,102,241,.3)');
+  grad.addColorStop(1, 'rgba(99,102,241,0)');
+
+  salesChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          label: 'Sales',
+          data: data.sales,
+          borderColor: '#6366f1',
+          backgroundColor: grad,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#6366f1',
+          pointRadius: days <= 7 ? 5 : 3,
+          pointHoverRadius: 7,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Orders',
+          data: data.orders,
+          borderColor: '#10b981',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.4,
+          pointBackgroundColor: '#10b981',
+          pointRadius: days <= 7 ? 4 : 2,
+          borderDash: [4,3],
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          labels: { color: textColor, usePointStyle: true, pointStyleWidth: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.label === 'Sales')
+                return ` Sales: {{ settings.currency_symbol }}${ctx.parsed.y.toFixed(2)}`;
+              return ` Orders: ${ctx.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: textColor, maxTicksLimit: days > 14 ? 10 : days }, grid: { color: gridColor } },
+        y: {
+          ticks: { color: textColor, callback: v => '{{ settings.currency_symbol }}' + v.toFixed(0) },
+          grid: { color: gridColor }
+        },
+        y1: {
+          position: 'right',
+          ticks: { color: '#10b981', stepSize: 1 },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// Load stock alerts banner
+async function loadStockAlerts() {
+  try {
+    const res  = await fetch('/api/stock-alerts');
+    const data = await res.json();
+    const banner = document.getElementById('stockAlertsBanner');
+    let html = '';
+    if (data.out_of_stock.length) {
+      html += `<div class="alert alert-danger d-flex align-items-center gap-2 mb-2" style="font-size:13px">
+        <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+        <strong>${data.out_of_stock.length} product(s) out of stock:</strong>
+        ${data.out_of_stock.slice(0,4).map(p=>`<span class="badge bg-danger">${p.name}</span>`).join(' ')}
+        ${data.out_of_stock.length>4?`<span class="text-muted">+${data.out_of_stock.length-4} more</span>`:''}
+        <a href="/inventory" class="ms-auto btn btn-sm btn-outline-danger">Fix Now</a>
+      </div>`;
+    }
+    if (data.expired.length) {
+      html += `<div class="alert alert-warning d-flex align-items-center gap-2 mb-2" style="font-size:13px">
+        <i class="bi bi-clock-history flex-shrink-0"></i>
+        <strong>${data.expired.length} expired product(s):</strong>
+        ${data.expired.slice(0,3).map(p=>`<span class="badge bg-warning text-dark">${p.name} (${p.expiry})</span>`).join(' ')}
+        <a href="/products" class="ms-auto btn btn-sm btn-outline-warning">Review</a>
+      </div>`;
+    }
+    if (data.expiring_soon.length) {
+      html += `<div class="alert alert-info d-flex align-items-center gap-2 mb-2" style="font-size:13px">
+        <i class="bi bi-calendar-x flex-shrink-0"></i>
+        <strong>${data.expiring_soon.length} product(s) expiring within 30 days:</strong>
+        ${data.expiring_soon.slice(0,3).map(p=>`<span class="badge bg-info">${p.name}</span>`).join(' ')}
+      </div>`;
+    }
+    banner.innerHTML = html;
+  } catch(e) {}
+}
+
+loadChart(7);
+loadStockAlerts();
+</script>
+{% endblock %}

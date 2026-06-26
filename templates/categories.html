@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block page_title %}Product Categories{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-tags me-2"></i>Add Category</div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="mb-3"><label class="form-label">Name *</label><input type="text" name="name" class="form-control" required placeholder="Category name"></div>
+          <div class="mb-3"><label class="form-label">Description</label><input type="text" name="description" class="form-control" placeholder="Optional description"></div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i>Add Category</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-ul me-2"></i>All Categories</div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead><tr><th>#</th><th>Category Name</th><th>Description</th><th>Products</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for cat in categories %}
+            <tr>
+              <td style="color:var(--text-muted)">{{ loop.index }}</td>
+              <td class="fw-bold">{{ cat.name }}</td>
+              <td style="color:var(--text-muted);font-size:13px">{{ cat.description or '—' }}</td>
+              <td><span class="badge bg-secondary">{{ cat.products|length }}</span></td>
+              <td>{% if current_user.is_super_admin() %}
+                <form method="POST" action="{{ url_for('delete_category', cat_id=cat.id) }}" onsubmit="return confirm('Delete category?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No categories yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Order{% endblock %}
+{% block page_title %}New Purchase Order{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-10">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-cart-plus me-2"></i>Create Purchase Order</span>
+      <a href="{{ url_for('purchases') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+    <div class="card-body">
+      <form method="POST" id="purchaseForm">
+        <input type="hidden" id="itemsJson" name="items_json" value="[]">
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label class="form-label">Supplier</label>
+            <select name="supplier_id" class="form-select">
+              <option value="">Direct Purchase</option>
+              {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" class="form-control" placeholder="Order notes...">
+          </div>
+        </div>
+
+        <!-- Add Item -->
+        <div class="row g-2 mb-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label">Product</label>
+            <select id="addProduct" class="form-select">
+              <option value="">Select Product</option>
+              {% for p in products %}
+              <option value="{{ p.id }}" data-name="{{ p.name }}" data-cost="{{ p.cost_price }}">{{ p.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Qty</label>
+            <input type="number" id="addQty" class="form-control" min="1" value="1">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Unit Cost</label>
+            <div class="input-group">
+              <span class="input-group-text">{{ settings.currency_symbol }}</span>
+              <input type="number" id="addCost" class="form-control" step="0.01" min="0" placeholder="0.00">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="button" class="btn btn-success w-100" onclick="addItem()"><i class="bi bi-plus-lg"></i> Add</button>
+          </div>
+        </div>
+
+        <!-- Items table -->
+        <div class="table-responsive mb-4">
+          <table class="table" id="itemsTable">
+            <thead><tr><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th></th></tr></thead>
+            <tbody id="itemsBody"><tr><td colspan="5" class="text-center text-muted py-3">No items added yet.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="fw-bold fs-5">Total: {{ settings.currency_symbol }}<span id="poTotal">0.00</span></div>
+          <button type="submit" class="btn btn-primary" onclick="prepareSubmit()"><i class="bi bi-check-lg me-1"></i>Create Purchase Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+let items = [];
+const CURRENCY = "{{ settings.currency_symbol }}";
+
+document.getElementById('addProduct').addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  if (opt.value) document.getElementById('addCost').value = opt.dataset.cost || '';
+});
+
+function addItem() {
+  const sel = document.getElementById('addProduct');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) { alert('Select a product.'); return; }
+  const qty = parseInt(document.getElementById('addQty').value) || 1;
+  const cost = parseFloat(document.getElementById('addCost').value) || 0;
+  const existing = items.find(i => i.product_id == opt.value);
+  if (existing) { existing.quantity += qty; existing.unit_cost = cost; existing.line_total = existing.quantity * cost; }
+  else items.push({ product_id: opt.value, product_name: opt.dataset.name, quantity: qty, unit_cost: cost, line_total: qty * cost });
+  renderItems();
+}
+
+function removeItem(idx) { items.splice(idx, 1); renderItems(); }
+
+function renderItems() {
+  const tbody = document.getElementById('itemsBody');
+  if (!items.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No items added yet.</td></tr>'; document.getElementById('poTotal').textContent = '0.00'; return; }
+  let total = 0;
+  tbody.innerHTML = items.map((item, idx) => {
+    total += item.line_total;
+    return `<tr>
+      <td class="fw-bold">${item.product_name}</td>
+      <td><input type="number" class="form-control form-control-sm" style="width:70px" value="${item.quantity}" min="1" onchange="updateQty(${idx}, this.value)"></td>
+      <td><input type="number" class="form-control form-control-sm" style="width:100px" value="${item.unit_cost.toFixed(2)}" step="0.01" min="0" onchange="updateCost(${idx}, this.value)"></td>
+      <td class="fw-bold" style="color:var(--brand-accent)">${CURRENCY}${item.line_total.toFixed(2)}</td>
+      <td><i class="bi bi-x-circle" style="cursor:pointer;color:var(--danger)" onclick="removeItem(${idx})"></i></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('poTotal').textContent = total.toFixed(2);
+}
+
+function updateQty(idx, val) { items[idx].quantity = Math.max(1, parseInt(val)||1); items[idx].line_total = items[idx].quantity * items[idx].unit_cost; renderItems(); }
+function updateCost(idx, val) { items[idx].unit_cost = parseFloat(val)||0; items[idx].line_total = items[idx].quantity * items[idx].unit_cost; renderItems(); }
+
+function prepareSubmit() {
+  if (!items.length) { alert('Add at least one item.'); event.preventDefault(); return; }
+  document.getElementById('itemsJson').value = JSON.stringify(items);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block page_title %}Supplier Management{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <form method="GET" class="d-flex gap-2">
+    <div class="pos-search-bar"><i class="bi bi-search"></i><input name="search" class="form-control" placeholder="Search suppliers..." value="{{ search }}" style="min-width:220px"></div>
+    <button class="btn btn-outline-secondary" type="submit">Search</button>
+  </form>
+  <a href="{{ url_for('add_supplier') }}" class="btn btn-primary"><i class="bi bi-truck me-1"></i>Add Supplier</a>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table mb-0">
+    <thead><tr><th>Supplier</th><th>Contact Person</th><th>Phone</th><th>Email</th><th>Orders</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for s in suppliers %}
+      <tr>
+        <td class="fw-bold">{{ s.name }}</td>
+        <td>{{ s.contact_person or '—' }}</td>
+        <td>{{ s.phone or '—' }}</td>
+        <td>{{ s.email or '—' }}</td>
+        <td>{{ s.purchases|length }}</td>
+        <td><div class="d-flex gap-1">
+          <a href="{{ url_for('edit_supplier', supplier_id=s.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+          <a href="{{ url_for('supplier_history', supplier_id=s.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history"></i></a>
+          {% if current_user.is_super_admin() %}
+          <form method="POST" action="{{ url_for('delete_supplier', supplier_id=s.id) }}" onsubmit="return confirm('Delete supplier?')">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+          {% endif %}
+        </div></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6"><div class="empty-state"><i class="bi bi-truck"></i><p>No suppliers yet.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% endblock %}

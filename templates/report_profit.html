@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Profit Report{% endblock %}
+{% block page_title %}Profit Report{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex gap-2">
+    {% for p, label in [('daily','Today'),('weekly','This Week'),('monthly','This Month'),('yearly','This Year')] %}
+    <a href="{{ url_for('report_profit', period=p) }}" class="btn btn-sm {% if period == p %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <a href="{{ url_for('reports') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+<div class="row g-3">
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon indigo"><i class="bi bi-graph-up-arrow"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_revenue) }}</div>
+      <div class="stat-card-label">Total Revenue</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon red"><i class="bi bi-graph-down-arrow"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_cost) }}</div>
+      <div class="stat-card-label">Total Cost (COGS)</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-card-value" style="color:{% if total_profit >= 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ settings.currency_symbol }}{{ "%.2f"|format(total_profit) }}
+      </div>
+      <div class="stat-card-label">Gross Profit</div>
+    </div>
+  </div>
+</div>
+
+{% if total_revenue > 0 %}
+<div class="card mt-4">
+  <div class="card-body">
+    <canvas id="profitChart" height="80"></canvas>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if total_revenue > 0 %}
+<script>
+new Chart(document.getElementById('profitChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Revenue', 'Cost', 'Profit'],
+    datasets: [{
+      data: [{{ total_revenue }}, {{ total_cost }}, {{ total_profit }}],
+      backgroundColor: ['rgba(99,102,241,.7)', 'rgba(239,68,68,.7)', 'rgba(16,185,129,.7)'],
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { ticks: { callback: v => '{{ settings.currency_symbol }}' + v.toFixed(0) } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

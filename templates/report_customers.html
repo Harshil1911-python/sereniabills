@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Customer Report{% endblock %}
+{% block page_title %}Customer Report{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="fw-bold" style="color:var(--text-muted)">Customer spending analysis (completed sales)</div>
+  <a href="{{ url_for('reports') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table mb-0">
+    <thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Total Orders</th><th>Total Spent</th><th>Outstanding</th></tr></thead>
+    <tbody>
+      {% for r in results %}
+      <tr>
+        <td style="color:var(--text-muted)">{{ loop.index }}</td>
+        <td class="fw-bold">{{ r.name }}</td>
+        <td style="color:var(--text-muted)">{{ r.phone or '—' }}</td>
+        <td>{{ r.total_orders }}</td>
+        <td class="fw-bold" style="color:var(--brand-accent)">{{ settings.currency_symbol }}{{ "%.2f"|format(r.total_spent or 0) }}</td>
+        <td>{% if r.outstanding_balance > 0 %}<span class="text-danger fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(r.outstanding_balance) }}</span>{% else %}<span class="text-success">{{ settings.currency_symbol }}0.00</span>{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-center text-muted py-4">No customer data yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% endblock %}

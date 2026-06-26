@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Customer Management{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <form method="GET" class="d-flex gap-2">
+    <div class="pos-search-bar"><i class="bi bi-search"></i>
+      <input name="search" class="form-control" placeholder="Search customers..." value="{{ search }}" style="min-width:220px">
+    </div>
+    <button class="btn btn-outline-secondary" type="submit">Search</button>
+  </form>
+  <a href="{{ url_for('add_customer') }}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Add Customer</a>
+</div>
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th><th>Balance</th><th>Since</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for c in customers %}
+          <tr>
+            <td class="fw-bold">{{ c.name }}</td>
+            <td>{{ c.phone or '—' }}</td>
+            <td>{{ c.email or '—' }}</td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ c.address or '—' }}</td>
+            <td>{% if c.outstanding_balance > 0 %}<span class="text-danger fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(c.outstanding_balance) }}</span>{% else %}<span class="text-success">{{ settings.currency_symbol }}0.00</span>{% endif %}</td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ c.created_at.strftime('%d %b %Y') }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                <a href="{{ url_for('edit_customer', customer_id=c.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                <a href="{{ url_for('customer_history', customer_id=c.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history"></i></a>
+                {% if current_user.is_super_admin() %}
+                <form method="POST" action="{{ url_for('delete_customer', customer_id=c.id) }}" onsubmit="return confirm('Delete customer?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7"><div class="empty-state"><i class="bi bi-people"></i><p>No customers yet.</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

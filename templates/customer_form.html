@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if customer else 'Add' }} Customer{% endblock %}
+{% block page_title %}{{ 'Edit' if customer else 'Add' }} Customer{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-7">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-person me-2"></i>{{ 'Edit Customer' if customer else 'Add New Customer' }}</span>
+      <a href="{{ url_for('customers') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+    <div class="card-body">
+      <form method="POST">
+        <div class="row g-3">
+          <div class="col-12"><label class="form-label">Name *</label><input type="text" name="name" class="form-control" required value="{{ customer.name if customer else '' }}"></div>
+          <div class="col-md-6"><label class="form-label">Phone</label><input type="text" name="phone" class="form-control" value="{{ customer.phone or '' if customer else '' }}"></div>
+          <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ customer.email or '' if customer else '' }}"></div>
+          <div class="col-12"><label class="form-label">Address</label><textarea name="address" class="form-control" rows="2">{{ customer.address or '' if customer else '' }}</textarea></div>
+          <div class="col-md-6"><label class="form-label">Outstanding Balance</label>
+            <div class="input-group"><span class="input-group-text">{{ settings.currency_symbol }}</span>
+              <input type="number" name="outstanding_balance" class="form-control" step="0.01" min="0" value="{{ customer.outstanding_balance if customer else '0' }}">
+            </div>
+          </div>
+          <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2">{{ customer.notes or '' if customer else '' }}</textarea></div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'Update' if customer else 'Add Customer' }}</button>
+          <a href="{{ url_for('customers') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

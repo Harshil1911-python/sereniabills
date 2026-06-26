@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Daily Summary{% endblock %}
+{% block page_title %}Daily Summary — {{ report_date.strftime('%d %B %Y') }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
+  <form method="GET" class="d-flex gap-2 align-items-center">
+    <label class="form-label mb-0 fw-bold">Date:</label>
+    <input type="date" name="date" class="form-control form-control-sm"
+           value="{{ report_date.strftime('%Y-%m-%d') }}" style="width:160px">
+    <button type="submit" class="btn btn-primary btn-sm">Load</button>
+  </form>
+  <div class="d-flex gap-2">
+    <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-printer me-1"></i>Print Summary
+    </button>
+    <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-receipt"></i></div>
+      <div class="stat-card-value">{{ num_bills }}</div>
+      <div class="stat-card-label">Total Bills</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon indigo"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_sales) }}</div>
+      <div class="stat-card-label">Gross Sales</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon red"><i class="bi bi-arrow-down-circle"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_expenses) }}</div>
+      <div class="stat-card-label">Total Expenses</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-card-icon {% if net_cash >= 0 %}green{% else %}red{% endif %}">
+        <i class="bi bi-safe"></i>
+      </div>
+      <div class="stat-card-value" style="color:{% if net_cash >= 0 %}var(--success){% else %}var(--danger){% endif %}">
+        {{ settings.currency_symbol }}{{ "%.2f"|format(net_cash) }}
+      </div>
+      <div class="stat-card-label">Net Cash (Sales − Expenses)</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- Payment Breakdown -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-credit-card me-2"></i>Payment Breakdown</div>
+      <div class="card-body">
+        {% if payment_breakdown %}
+          {% for method, amount in payment_breakdown.items() %}
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <div class="stat-card-icon indigo" style="width:34px;height:34px;font-size:15px">
+                <i class="bi bi-{% if method == 'Cash' %}cash{% elif method == 'Card' %}credit-card{% elif method == 'UPI' %}phone{% else %}wallet{% endif %}"></i>
+              </div>
+              <span class="fw-bold">{{ method }}</span>
+            </div>
+            <span class="fw-bold" style="color:var(--brand-accent)">
+              {{ settings.currency_symbol }}{{ "%.2f"|format(amount) }}
+            </span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state"><i class="bi bi-credit-card"></i><p>No payments today.</p></div>
+        {% endif %}
+
+        <hr style="border-color:var(--border-color)">
+        <div class="d-flex justify-content-between fw-bold">
+          <span>Total Tax Collected</span>
+          <span class="text-warning">{{ settings.currency_symbol }}{{ "%.2f"|format(total_tax) }}</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold mt-2">
+          <span>Total Discounts Given</span>
+          <span class="text-danger">-{{ settings.currency_symbol }}{{ "%.2f"|format(total_discount) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Selling Items -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-trophy me-2"></i>Top Selling Items Today</div>
+      <div class="card-body p-0">
+        {% if top_items %}
+          {% for item in top_items %}
+          <div class="d-flex justify-content-between align-items-center px-3 py-2"
+               style="border-bottom:1px solid var(--border-color)">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-secondary" style="min-width:24px">{{ loop.index }}</span>
+              <span class="fw-bold" style="font-size:13px">{{ item.product_name[:30] }}</span>
+            </div>
+            <div class="text-end">
+              <div style="font-size:12px;color:var(--text-muted)">{{ item.qty }} sold</div>
+              <div class="fw-bold" style="color:var(--brand-accent);font-size:13px">
+                {{ settings.currency_symbol }}{{ "%.2f"|format(item.rev) }}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state"><i class="bi bi-bar-chart"></i><p>No sales today.</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sales List -->
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-receipt me-2"></i>Bills Today ({{ num_bills }})</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Invoice</th><th>Time</th><th>Customer</th>
+            <th>Items</th><th>Tax</th><th>Discount</th><th>Total</th><th>Payment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sales %}
+          <tr>
+            <td>
+              <a href="{{ url_for('view_invoice', sale_id=s.id) }}"
+                 class="fw-bold" style="color:var(--brand-accent)">{{ s.invoice_number }}</a>
+            </td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ s.created_at.strftime('%H:%M') }}</td>
+            <td>{{ s.customer.name if s.customer else 'Walk-in' }}</td>
+            <td>{{ s.items|length }}</td>
+            <td class="text-warning">{{ settings.currency_symbol }}{{ "%.2f"|format(s.tax_amount) }}</td>
+            <td class="text-danger">-{{ settings.currency_symbol }}{{ "%.2f"|format(s.discount_amount) }}</td>
+            <td class="fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(s.grand_total) }}</td>
+            <td><span class="badge bg-secondary">{{ s.payment_method }}</span></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">No bills on this date.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if sales %}
+        <tfoot style="background:var(--bg-surface2);font-weight:700">
+          <tr>
+            <td colspan="6" class="text-end">Day Total</td>
+            <td style="color:var(--brand-accent)">
+              {{ settings.currency_symbol }}{{ "%.2f"|format(total_sales) }}
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Expenses List -->
+{% if expenses %}
+<div class="card">
+  <div class="card-header"><i class="bi bi-wallet2 me-2"></i>Expenses Today</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Title</th><th>Category</th><th>Payment</th><th>Amount</th></tr></thead>
+        <tbody>
+          {% for e in expenses %}
+          <tr>
+            <td class="fw-bold">{{ e.title }}</td>
+            <td><span class="badge bg-secondary">{{ e.category or 'General' }}</span></td>
+            <td>{{ e.payment_method }}</td>
+            <td class="fw-bold text-danger">{{ settings.currency_symbol }}{{ "%.2f"|format(e.amount) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot style="background:var(--bg-surface2);font-weight:700">
+          <tr>
+            <td colspan="3" class="text-end">Total Expenses</td>
+            <td class="text-danger">{{ settings.currency_symbol }}{{ "%.2f"|format(total_expenses) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Print Footer -->
+<div class="text-center mt-4" style="color:var(--text-muted);font-size:12px">
+  {{ settings.company_name }} — Daily Summary for {{ report_date.strftime('%d %B %Y') }} — Printed {{ now.strftime('%d %b %Y %H:%M') }}
+</div>
+{% endblock %}

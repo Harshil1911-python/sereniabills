@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Purchase {{ purchase.reference_no }}{% endblock %}
+{% block page_title %}Purchase Order — {{ purchase.reference_no }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <div style="font-size:13px;color:var(--text-muted)">Supplier: {{ purchase.supplier.name if purchase.supplier else 'Direct' }}</div>
+    <div style="font-size:13px;color:var(--text-muted)">Date: {{ purchase.created_at.strftime('%d %b %Y, %H:%M') }}</div>
+  </div>
+  <a href="{{ url_for('purchases') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="card">
+  <div class="card-header"><i class="bi bi-cart-check me-2"></i>Order Items</div>
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead><tr><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
+      <tbody>
+        {% for item in purchase.items %}
+        <tr>
+          <td class="fw-bold">{{ item.product.name if item.product else '—' }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ settings.currency_symbol }}{{ "%.2f"|format(item.unit_cost) }}</td>
+          <td class="fw-bold" style="color:var(--brand-accent)">{{ settings.currency_symbol }}{{ "%.2f"|format(item.line_total) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="3" class="text-end fw-bold">Grand Total</td>
+          <td class="fw-bold fs-5" style="color:var(--brand-accent)">{{ settings.currency_symbol }}{{ "%.2f"|format(purchase.total_amount) }}</td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

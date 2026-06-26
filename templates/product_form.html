@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if product else 'Add' }} Product{% endblock %}
+{% block page_title %}{{ 'Edit' if product else 'Add' }} Product{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-box-seam me-2"></i>{{ 'Edit Product' if product else 'Add New Product' }}</span>
+        <a href="{{ url_for('products') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+      </div>
+      <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Product Name *</label>
+              <input type="text" name="name" class="form-control" required value="{{ product.name if product else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Variant Name</label>
+              <input type="text" name="variant_name" class="form-control" placeholder="e.g. Size: L, Color: Red" value="{{ product.variant_name or '' if product else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">SKU</label>
+              <input type="text" name="sku" class="form-control" placeholder="Stock Keeping Unit" value="{{ product.sku or '' if product else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Barcode</label>
+              <input type="text" name="barcode" class="form-control" placeholder="Scan or enter barcode" value="{{ product.barcode or '' if product else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Category</label>
+              <select name="category_id" class="form-select">
+                <option value="">— None —</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if product and product.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Brand</label>
+              <select name="brand_id" class="form-select">
+                <option value="">— None —</option>
+                {% for brand in brands %}
+                <option value="{{ brand.id }}" {% if product and product.brand_id == brand.id %}selected{% endif %}>{{ brand.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Cost Price</label>
+              <div class="input-group">
+                <span class="input-group-text">{{ settings.currency_symbol }}</span>
+                <input type="number" name="cost_price" class="form-control" step="0.01" min="0" value="{{ product.cost_price if product else '0' }}">
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Selling Price *</label>
+              <div class="input-group">
+                <span class="input-group-text">{{ settings.currency_symbol }}</span>
+                <input type="number" name="selling_price" class="form-control" step="0.01" min="0" required value="{{ product.selling_price if product else '0' }}">
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">GST / Tax %</label>
+              <div class="input-group">
+                <input type="number" name="tax_percent" class="form-control" step="0.01" min="0" max="100" value="{{ product.tax_percent if product else settings.default_tax_rate }}">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Stock Quantity</label>
+              <input type="number" name="stock_quantity" class="form-control" min="0" value="{{ product.stock_quantity if product else '0' }}" {% if product %}readonly{% endif %}>
+              {% if product %}<div class="form-text">Use <a href="{{ url_for('inventory') }}">Inventory</a> to adjust stock.</div>{% endif %}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Low Stock Alert</label>
+              <input type="number" name="low_stock_threshold" class="form-control" min="0" value="{{ product.low_stock_threshold if product else '5' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Expiry Date</label>
+              <input type="date" name="expiry_date" class="form-control" value="{{ product.expiry_date.strftime('%Y-%m-%d') if product and product.expiry_date else '' }}">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control" rows="3">{{ product.description or '' if product else '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Product Image</label>
+              {% if product and product.image %}
+              <div class="mb-2"><img src="/static/uploads/{{ product.image }}" style="height:80px;border-radius:8px;object-fit:cover"></div>
+              {% endif %}
+              <input type="file" name="image" class="form-control" accept=".png,.jpg,.jpeg,.gif,.webp">
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'Update Product' if product else 'Add Product' }}</button>
+            <a href="{{ url_for('products') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

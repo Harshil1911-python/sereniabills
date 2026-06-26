@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-gear me-2"></i>Company Settings</div>
+      <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Company Name</label>
+              <input type="text" name="company_name" class="form-control" value="{{ settings.company_name or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">GST Number</label>
+              <input type="text" name="gst_number" class="form-control" value="{{ settings.gst_number or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone</label>
+              <input type="text" name="phone" class="form-control" value="{{ settings.phone or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control" value="{{ settings.email or '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Address</label>
+              <textarea name="address" class="form-control" rows="2">{{ settings.address or '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Currency Symbol</label>
+              <input type="text" name="currency_symbol" class="form-control" value="{{ settings.currency_symbol or '₹' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Invoice Prefix</label>
+              <input type="text" name="invoice_prefix" class="form-control" value="{{ settings.invoice_prefix or 'INV-' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Default Tax Rate (%)</label>
+              <input type="number" name="default_tax_rate" class="form-control" step="0.01" min="0" max="100" value="{{ settings.default_tax_rate or 0 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Theme</label>
+              <select name="theme" class="form-select">
+                <option value="light" {% if settings.theme == 'light' %}selected{% endif %}>Light</option>
+                <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Company Logo</label>
+              {% if settings.logo %}
+              <div class="mb-2">
+                <img src="/static/uploads/{{ settings.logo }}" style="height:60px;border-radius:8px;object-fit:cover">
+              </div>
+              {% endif %}
+              <input type="file" name="logo" class="form-control" accept=".png,.jpg,.jpeg,.gif,.webp">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-lg me-1"></i>Save Settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-database me-2"></i>Database Management</div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:13px">Download a full backup of your database or restore from a previous backup.</p>
+        <a href="{{ url_for('backup_database') }}" class="btn btn-success w-100 mb-3">
+          <i class="bi bi-download me-1"></i> Download Backup
+        </a>
+        <hr>
+        <p class="text-muted" style="font-size:13px"><strong class="text-danger">Warning:</strong> Restoring will overwrite all current data.</p>
+        <form method="POST" action="{{ url_for('restore_database') }}" enctype="multipart/form-data" onsubmit="return confirm('This will replace ALL current data. Are you sure?')">
+          <input type="file" name="backup_file" class="form-control mb-2" accept=".db" required>
+          <button type="submit" class="btn btn-danger w-100"><i class="bi bi-upload me-1"></i> Restore Backup</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-info-circle me-2"></i>System Info</div>
+      <div class="card-body" style="font-size:13px">
+        <div class="d-flex justify-content-between mb-2"><span>Application</span><span class="fw-bold">SereniaBills</span></div>
+        <div class="d-flex justify-content-between mb-2"><span>Version</span><span class="fw-bold">1.0.0</span></div>
+        <div class="d-flex justify-content-between mb-2"><span>Next Invoice #</span><span class="fw-bold">{{ settings.invoice_prefix }}{{ '%06d' % settings.next_invoice_number }}</span></div>
+        <div class="d-flex justify-content-between mb-2"><span>Theme</span><span class="fw-bold">{{ settings.theme.title() }}</span></div>
+        <div class="d-flex justify-content-between"><span>Currency</span><span class="fw-bold">{{ settings.currency_symbol }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
