@@ -3,183 +3,614 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Customer Display — SereniaBills</title>
+  <title>{{ settings.company_name }} — Customer Display</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <style>
-    body { margin: 0; overflow: hidden; }
-    #fullscreenBtn {
-      position: fixed; top: 16px; right: 16px; z-index: 999;
-      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
-      color: rgba(255,255,255,.6); border-radius: 8px;
-      padding: 6px 12px; cursor: pointer; font-size: 13px;
-      transition: all .2s;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:   #6366f1;
+      --accent2:  #8b5cf6;
+      --success:  #10b981;
+      --warning:  #f59e0b;
+      --danger:   #ef4444;
+      --bg:       #0b0e1a;
+      --surface:  #151929;
+      --surface2: #1c2138;
+      --border:   rgba(255,255,255,.07);
+      --text:     #e2e8f0;
+      --muted:    rgba(255,255,255,.35);
     }
-    #fullscreenBtn:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP HEADER ── */
+    .cd-header {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .cd-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .cd-logo {
+      width: 46px; height: 46px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .cd-logo img { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; }
+    .cd-name { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
+    .cd-tagline { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    .cd-clock-wrap { text-align: right; }
+    .cd-time { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: 2px; line-height: 1; }
+    .cd-date { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── STATUS BAR ── */
+    .cd-status {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .cd-live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    .cd-live-dot.stale { background: var(--warning); }
+    .cd-live-dot.error { background: var(--danger); animation: none; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,.4); }
+      50%      { opacity: .6; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    }
+
+    /* ── BODY ── */
+    .cd-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── ITEM LIST ── */
+    .cd-items {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
     .cd-items::-webkit-scrollbar { width: 4px; }
-    .cd-items::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
-    .cd-status-bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: rgba(0,0,0,.5); padding: 8px 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px; color: rgba(255,255,255,.3);
-      backdrop-filter: blur(10px);
+    .cd-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── ITEM CARD ── */
+    .cd-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      animation: itemIn .25s ease;
+      transition: border-color .2s;
     }
-    .cd-pulse { width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+    .cd-item.new-item { border-color: var(--accent); }
+    @keyframes itemIn {
+      from { opacity: 0; transform: translateY(-12px) scale(.97); }
+      to   { opacity: 1; transform: none; }
+    }
+    .cd-item-thumb {
+      width: 60px; height: 60px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      color: var(--muted);
+    }
+    .cd-item-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .cd-item-info { flex: 1; min-width: 0; }
+    .cd-item-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cd-item-meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .cd-item-qty {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent);
+      width: 42px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .cd-item-total {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      text-align: right;
+      flex-shrink: 0;
+      min-width: 100px;
+    }
+
+    /* ── EMPTY / WELCOME ── */
+    .cd-welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      animation: fadeIn .4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .cd-welcome-icon {
+      font-size: 80px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .cd-welcome-title { font-size: 36px; font-weight: 800; color: rgba(255,255,255,.15); }
+    .cd-welcome-sub { font-size: 16px; color: rgba(255,255,255,.1); }
+
+    /* ── THANK YOU ── */
+    .cd-thankyou {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      animation: fadeIn .5s ease;
+    }
+    .cd-thankyou-icon { font-size: 90px; color: var(--success); line-height: 1; }
+    .cd-thankyou-title { font-size: 48px; font-weight: 900; color: #fff; }
+    .cd-thankyou-sub { font-size: 18px; color: var(--muted); }
+
+    /* ── SIDEBAR TOTALS ── */
+    .cd-sidebar {
+      width: 320px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+    }
+    .cd-sidebar-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .cd-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .cd-total-row span:last-child { font-weight: 600; color: var(--text); }
+    .cd-grand {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(99,102,241,.2), rgba(139,92,246,.1));
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: 14px;
+    }
+    .cd-grand-label { font-size: 14px; font-weight: 700; color: rgba(255,255,255,.7); }
+    .cd-grand-value {
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1;
+      transition: all .3s;
+    }
+    .cd-grand-value.bump {
+      color: var(--success);
+      transform: scale(1.08);
+    }
+
+    .cd-item-count {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .cd-item-count strong { color: var(--accent); font-size: 22px; display: block; }
+
+    .cd-store-info {
+      margin-top: auto;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    /* ── FULLSCREEN BTN ── */
+    #fsBtn {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.5);
+      border-radius: 10px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .2s;
+      z-index: 999;
+    }
+    #fsBtn:hover { background: rgba(255,255,255,.14); color: #fff; }
   </style>
 </head>
-<body class="customer-display-body">
-  <button id="fullscreenBtn" onclick="toggleFullscreen()"><i class="bi bi-fullscreen"></i> Fullscreen</button>
+<body>
 
-  <div class="cd-header">
+<!-- HEADER -->
+<div class="cd-header">
+  <div class="cd-brand">
+    {% if settings.logo %}
+      <div class="cd-logo"><img src="/static/uploads/{{ settings.logo }}" alt="Logo"></div>
+    {% else %}
+      <div class="cd-logo"><i class="bi bi-receipt-cutoff" style="color:#fff"></i></div>
+    {% endif %}
     <div>
-      {% if settings.logo %}
-      <img src="{{ url_for('static', filename='uploads/' + settings.logo) }}" style="height:44px;border-radius:8px;margin-right:12px" alt="Logo">
-      {% endif %}
-      <span class="cd-brand">SereniaBills</span>
-      <div class="cd-store">{{ settings.company_name }}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:22px;font-weight:800;color:rgba(255,255,255,.8)" id="clockDisplay"></div>
-      <div style="font-size:13px;color:rgba(255,255,255,.3)" id="dateDisplay"></div>
+      <div class="cd-name">{{ settings.company_name }}</div>
+      <div class="cd-tagline">Customer Display — {{ cashier_name }}</div>
     </div>
   </div>
+  <div class="cd-clock-wrap">
+    <div class="cd-time" id="clockTime">--:--:--</div>
+    <div class="cd-date" id="clockDate"></div>
+  </div>
+</div>
 
-  <div class="cd-body">
-    <div class="cd-items" id="cdItems">
-      <div class="cd-empty" id="cdEmpty">
-        <div class="cd-welcome">☀</div>
-        <div style="font-size:28px;font-weight:700;margin-bottom:8px;color:rgba(255,255,255,.2)">Welcome!</div>
-        <div>Waiting for items to be added...</div>
-      </div>
+<!-- STATUS BAR -->
+<div class="cd-status">
+  <div>
+    <span class="cd-live-dot" id="liveDot"></span>
+    <span id="liveStatus">Connecting…</span>
+  </div>
+  <div id="lastUpdated"></div>
+  <div>
+    {% if settings.gst_number %}GST: {{ settings.gst_number }} &nbsp;|&nbsp;{% endif %}
+    {{ settings.phone or '' }}
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="cd-body">
+
+  <!-- LEFT: Item list OR welcome/thankyou -->
+  <div class="cd-items" id="cdItemsWrap">
+
+    <!-- Welcome state (default) -->
+    <div class="cd-welcome" id="cdWelcome">
+      <div class="cd-welcome-icon"><i class="bi bi-bag-heart-fill"></i></div>
+      <div class="cd-welcome-title">Welcome!</div>
+      <div class="cd-welcome-sub">Your bill will appear here as items are added</div>
     </div>
 
-    <div class="cd-summary" id="cdSummary">
-      <div style="margin-bottom:20px">
-        <div class="cd-total-row"><span>Subtotal</span><span id="cdSubtotal">—</span></div>
-        <div class="cd-total-row"><span>Tax (GST)</span><span id="cdTax">—</span></div>
-        <div class="cd-total-row"><span>Discount</span><span id="cdDiscount">—</span></div>
-        <div class="cd-grand-total" id="cdGrand">
-          <span>Total</span><span>—</span>
+    <!-- Thank you state -->
+    <div class="cd-thankyou" id="cdThankYou">
+      <div class="cd-thankyou-icon"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="cd-thankyou-title">Thank You!</div>
+      <div class="cd-thankyou-sub">Please visit us again 🙏</div>
+    </div>
+
+    <!-- Items rendered here -->
+    <div id="cdItemsList"></div>
+  </div>
+
+  <!-- RIGHT: Totals sidebar -->
+  <div class="cd-sidebar">
+    <div class="cd-sidebar-title">Bill Summary</div>
+
+    <div class="cd-total-row">
+      <span>Subtotal</span>
+      <span id="cdSubtotal">—</span>
+    </div>
+    <div class="cd-total-row">
+      <span>Tax (GST)</span>
+      <span id="cdTax">—</span>
+    </div>
+    <div class="cd-total-row">
+      <span>Discount</span>
+      <span id="cdDiscount">—</span>
+    </div>
+
+    <div class="cd-grand">
+      <div class="cd-grand-label">TOTAL<br>PAYABLE</div>
+      <div class="cd-grand-value" id="cdGrand">—</div>
+    </div>
+
+    <div class="cd-item-count">
+      <strong id="cdItemCount">0</strong>
+      items in cart
+    </div>
+
+    <div class="cd-store-info">
+      <div style="font-weight:700;color:rgba(255,255,255,.4);margin-bottom:4px">
+        {{ settings.company_name }}
+      </div>
+      {% if settings.address %}<div>{{ settings.address }}</div>{% endif %}
+      {% if settings.phone %}<div><i class="bi bi-telephone"></i> {{ settings.phone }}</div>{% endif %}
+      {% if settings.email %}<div>{{ settings.email }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen button -->
+<button id="fsBtn" onclick="toggleFS()">
+  <i class="bi bi-fullscreen" id="fsIcon"></i> Fullscreen
+</button>
+
+<script>
+const CASHIER_ID = "{{ cashier_id }}";
+const CURRENCY   = "{{ settings.currency_symbol }}";
+
+// ── Clock ─────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clockTime').textContent =
+    now.toLocaleTimeString('en-IN', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('clockDate').textContent =
+    now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── State ─────────────────────────────────────────────────────────
+let lastTs         = null;      // ISO timestamp of last received update
+let lastTotal      = '0.00';
+let thankYouTimer  = null;
+let pollFailCount  = 0;
+let isPolling      = false;
+
+const dot        = document.getElementById('liveDot');
+const liveStatus = document.getElementById('liveStatus');
+const lastUpEl   = document.getElementById('lastUpdated');
+
+function setStatus(state, msg) {
+  dot.className = 'cd-live-dot' + (state === 'ok' ? '' : state === 'stale' ? ' stale' : ' error');
+  liveStatus.textContent = msg;
+}
+
+// ── Long-poll loop ────────────────────────────────────────────────
+async function poll() {
+  if (isPolling) return;
+  isPolling = true;
+
+  const url = lastTs
+    ? `/api/cart/state/${CASHIER_ID}?since=${encodeURIComponent(lastTs)}`
+    : `/api/cart/state/${CASHIER_ID}`;
+
+  try {
+    const res = await fetch(url, {
+      // timeout via AbortController — 30 s should outlast server's 25 s hold
+      signal: AbortSignal.timeout(30000)
+    });
+
+    if (res.status === 304) {
+      // Nothing changed — immediately re-poll (server already waited 25 s)
+      pollFailCount = 0;
+      setStatus('ok', 'Live — no changes');
+      isPolling = false;
+      poll();
+      return;
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    pollFailCount = 0;
+
+    const ts = data._ts || new Date().toISOString();
+    if (ts !== lastTs) {
+      lastTs = ts;
+      renderDisplay(data);
+      lastUpEl.textContent = 'Updated ' + new Date(ts).toLocaleTimeString('en-IN', { hour12: true });
+    }
+
+    setStatus('ok', 'Live — synced');
+    isPolling = false;
+    poll();  // immediately re-enter long-poll
+
+  } catch (err) {
+    pollFailCount++;
+    isPolling = false;
+    if (pollFailCount >= 3) {
+      setStatus('error', 'Connection lost — retrying…');
+    } else {
+      setStatus('stale', 'Reconnecting…');
+    }
+    // Back-off: 1s, 2s, 4s, then cap at 5s
+    const delay = Math.min(1000 * Math.pow(2, pollFailCount - 1), 5000);
+    setTimeout(poll, delay);
+  }
+}
+
+// ── Render cart ───────────────────────────────────────────────────
+function renderDisplay(data) {
+  const items     = data.items || [];
+  const welcome   = document.getElementById('cdWelcome');
+  const thankYou  = document.getElementById('cdThankYou');
+  const itemsList = document.getElementById('cdItemsList');
+
+  const newTotal = data.total || '0.00';
+  const wasEmpty = lastTotal === '0.00';
+  const isEmpty  = !items.length;
+
+  // ── Thank-you flash when cart goes from items → empty ────────────
+  if (!isEmpty) {
+    // Clear any pending thank-you timer
+    if (thankYouTimer) { clearTimeout(thankYouTimer); thankYouTimer = null; }
+    thankYou.style.display = 'none';
+  }
+
+  if (isEmpty && !wasEmpty && parseFloat(lastTotal) > 0) {
+    // Cart just cleared after having items → sale completed
+    welcome.style.display  = 'none';
+    thankYou.style.display = 'flex';
+    itemsList.innerHTML    = '';
+    thankYouTimer = setTimeout(() => {
+      thankYou.style.display  = 'none';
+      welcome.style.display   = 'flex';
+    }, 6000);
+    lastTotal = '0.00';
+    updateTotals(data);
+    document.getElementById('cdItemCount').textContent = 0;
+    return;
+  }
+
+  lastTotal = newTotal;
+
+  if (isEmpty) {
+    welcome.style.display  = 'flex';
+    thankYou.style.display = 'none';
+    itemsList.innerHTML    = '';
+    updateTotals(data);
+    document.getElementById('cdItemCount').textContent = 0;
+    return;
+  }
+
+  // ── Render items ──────────────────────────────────────────────
+  welcome.style.display  = 'none';
+  thankYou.style.display = 'none';
+
+  // Diff: track existing items by product_name to animate only new ones
+  const existingNames = new Set(
+    [...itemsList.querySelectorAll('.cd-item')].map(el => el.dataset.name)
+  );
+
+  itemsList.innerHTML = items.map((item, i) => {
+    const isNew     = !existingNames.has(item.product_name);
+    const unitPrice = parseFloat(item.unit_price || 0);
+    const qty       = parseInt(item.quantity || 1);
+    const lineTotal = parseFloat(item.line_total || 0);
+    const taxPct    = parseFloat(item.tax_percent || 0);
+
+    const imgHtml = item.image
+      ? `<img src="/static/uploads/${item.image}" alt=""
+             onerror="this.parentElement.innerHTML='<i class=\\'bi bi-box\\'></i>'">`
+      : `<i class="bi bi-box"></i>`;
+
+    return `
+    <div class="cd-item${isNew ? ' new-item' : ''}" data-name="${escHtml(item.product_name)}"
+         style="animation-delay:${i * 0.04}s">
+      <div class="cd-item-thumb">${imgHtml}</div>
+      <div class="cd-item-info">
+        <div class="cd-item-name">${escHtml(item.product_name)}</div>
+        <div class="cd-item-meta">
+          ${CURRENCY}${unitPrice.toFixed(2)} each
+          ${taxPct > 0 ? `<span style="margin-left:8px;color:rgba(255,255,255,.25)">+${taxPct}% GST</span>` : ''}
         </div>
       </div>
-      <div class="cd-thank-you" id="cdThankYou">
-        <i class="bi bi-heart-fill" style="color:#ef4444;margin-right:8px"></i>
-        Thank you for shopping with us!
-      </div>
-      <div style="text-align:center;margin-top:auto;padding-top:20px">
-        <div style="font-size:13px;color:rgba(255,255,255,.2)">{{ settings.company_name }}</div>
-        {% if settings.gst_number %}<div style="font-size:11px;color:rgba(255,255,255,.15)">GST: {{ settings.gst_number }}</div>{% endif %}
-        {% if settings.phone %}<div style="font-size:12px;color:rgba(255,255,255,.2)"><i class="bi bi-telephone"></i> {{ settings.phone }}</div>{% endif %}
-      </div>
-    </div>
-  </div>
+      <div class="cd-item-qty">×${qty}</div>
+      <div class="cd-item-total">${CURRENCY}${lineTotal.toFixed(2)}</div>
+    </div>`;
+  }).join('');
 
-  <div class="cd-status-bar">
-    <div class="d-flex align-items-center gap-2">
-      <div class="cd-pulse"></div>
-      <span>Live Display — Auto-syncing</span>
-    </div>
-    <span>Cashier ID: {{ cashier_id }}</span>
-    <span>SereniaBills Customer Display</span>
-  </div>
+  // Remove new-item class after animation
+  setTimeout(() => {
+    itemsList.querySelectorAll('.cd-item.new-item').forEach(el => el.classList.remove('new-item'));
+  }, 600);
 
-  <script>
-    const CASHIER_ID = "{{ cashier_id }}";
-    const CURRENCY = "{{ settings.currency_symbol }}";
-    let lastHash = '';
-    let thankYouTimer = null;
+  document.getElementById('cdItemCount').textContent = items.length;
+  updateTotals(data);
 
-    // Clock
-    function updateClock() {
-      const now = new Date();
-      document.getElementById('clockDisplay').textContent = now.toLocaleTimeString('en-IN', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      document.getElementById('dateDisplay').textContent = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
+  // Scroll to bottom to show latest item
+  const wrap = document.getElementById('cdItemsWrap');
+  wrap.scrollTop = wrap.scrollHeight;
+}
 
-    // Poll for cart state
-    async function pollCart() {
-      try {
-        const res = await fetch(`/api/cart/state/${CASHIER_ID}`);
-        const data = await res.json();
-        const hash = JSON.stringify(data);
-        if (hash === lastHash) return;
-        lastHash = hash;
-        renderDisplay(data);
-      } catch (e) {}
-    }
+function updateTotals(data) {
+  const sub  = parseFloat(data.subtotal || 0);
+  const tax  = parseFloat(data.tax      || 0);
+  const disc = parseFloat(data.discount || 0);
+  const tot  = parseFloat(data.total    || 0);
 
-    function renderDisplay(data) {
-      const items = data.items || [];
-      const empty = document.getElementById('cdEmpty');
-      const container = document.getElementById('cdItems');
-      const thankYou = document.getElementById('cdThankYou');
+  document.getElementById('cdSubtotal').textContent = sub  > 0 ? CURRENCY + sub.toFixed(2)  : '—';
+  document.getElementById('cdTax').textContent      = tax  > 0 ? CURRENCY + tax.toFixed(2)  : '—';
+  document.getElementById('cdDiscount').textContent = disc > 0 ? '-' + CURRENCY + disc.toFixed(2) : '—';
 
-      // Detect "sale completed" = items just cleared
-      if (items.length === 0 && lastHash !== '{}') {
-        // show thank you briefly
-        if (thankYouTimer) clearTimeout(thankYouTimer);
-        thankYou.style.display = 'block';
-        thankYouTimer = setTimeout(() => { thankYou.style.display = 'none'; }, 5000);
-      } else {
-        thankYou.style.display = 'none';
-      }
+  const grandEl = document.getElementById('cdGrand');
+  const newVal  = tot > 0 ? CURRENCY + tot.toFixed(2) : '—';
+  if (grandEl.textContent !== newVal) {
+    grandEl.textContent = newVal;
+    grandEl.classList.add('bump');
+    setTimeout(() => grandEl.classList.remove('bump'), 400);
+  }
+}
 
-      if (!items.length) {
-        container.innerHTML = '';
-        container.appendChild(empty);
-        empty.style.display = 'flex';
-        // Reset totals
-        document.getElementById('cdSubtotal').textContent = '—';
-        document.getElementById('cdTax').textContent = '—';
-        document.getElementById('cdDiscount').textContent = '—';
-        document.getElementById('cdGrand').innerHTML = `<span>Total</span><span>—</span>`;
-        return;
-      }
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
-      empty.style.display = 'none';
-      container.innerHTML = '';
+// ── Fullscreen ────────────────────────────────────────────────────
+function toggleFS() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+    document.getElementById('fsIcon').className = 'bi bi-fullscreen-exit';
+    document.getElementById('fsBtn').childNodes[1].textContent = ' Exit Fullscreen';
+  } else {
+    document.exitFullscreen();
+    document.getElementById('fsIcon').className = 'bi bi-fullscreen';
+    document.getElementById('fsBtn').childNodes[1].textContent = ' Fullscreen';
+  }
+}
 
-      items.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'cd-item-row';
-        div.innerHTML = `
-          <div class="cd-item-img">
-            ${item.image
-              ? `<img src="/static/uploads/${item.image}" style="width:56px;height:56px;border-radius:8px;object-fit:cover" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-box\\'></i>'">`
-              : '<i class="bi bi-box"></i>'}
-          </div>
-          <div class="flex-grow-1">
-            <div class="cd-item-name">${item.product_name}</div>
-            <div class="cd-item-meta">${CURRENCY}${parseFloat(item.unit_price).toFixed(2)} × ${item.quantity}${item.tax_percent > 0 ? ` | Tax: ${item.tax_percent}%` : ''}</div>
-          </div>
-          <div class="cd-item-total">${CURRENCY}${parseFloat(item.line_total).toFixed(2)}</div>`;
-        container.appendChild(div);
-      });
-
-      // Update totals
-      document.getElementById('cdSubtotal').textContent = CURRENCY + parseFloat(data.subtotal || 0).toFixed(2);
-      document.getElementById('cdTax').textContent = CURRENCY + parseFloat(data.tax || 0).toFixed(2);
-      document.getElementById('cdDiscount').textContent = '-' + CURRENCY + parseFloat(data.discount || 0).toFixed(2);
-      document.getElementById('cdGrand').innerHTML = `<span>Total</span><span>${CURRENCY}${parseFloat(data.total || 0).toFixed(2)}</span>`;
-    }
-
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-        document.getElementById('fullscreenBtn').innerHTML = '<i class="bi bi-fullscreen-exit"></i> Exit';
-      } else {
-        document.exitFullscreen();
-        document.getElementById('fullscreenBtn').innerHTML = '<i class="bi bi-fullscreen"></i> Fullscreen';
-      }
-    }
-
-    // Poll every 1.5s
-    setInterval(pollCart, 1500);
-    pollCart();
-  </script>
+// ── Start ─────────────────────────────────────────────────────────
+setStatus('stale', 'Connecting…');
+poll();
+</script>
 </body>
 </html>
