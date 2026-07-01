@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}CSV Import Preview{% endblock %}
+{% block page_title %}CSV Import Preview{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <span class="fw-bold" style="font-size:15px">
+      <i class="bi bi-file-earmark-spreadsheet me-2" style="color:var(--success)"></i>
+      {{ filename }}
+    </span>
+    <span class="badge bg-secondary ms-2">{{ rows|length }} rows</span>
+  </div>
+  <a href="{{ url_for('products') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-x-lg me-1"></i>Cancel
+  </a>
+</div>
+
+<!-- Mode Selection Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="mode-card" id="cardAppend" onclick="selectMode('append')"
+         style="border:2px solid var(--brand-accent);border-radius:var(--radius);padding:20px;cursor:pointer;
+                background:rgba(99,102,241,.08);transition:all .2s">
+      <div class="d-flex align-items-center gap-3 mb-2">
+        <div class="stat-card-icon indigo" style="width:44px;height:44px;font-size:20px">
+          <i class="bi bi-plus-circle-fill"></i>
+        </div>
+        <div>
+          <div class="fw-bold fs-6">Add / Merge (Recommended)</div>
+          <div style="font-size:12px;color:var(--text-muted)">Keeps your {{ existing_count }} existing products</div>
+        </div>
+        <div class="ms-auto">
+          <div class="form-check" style="margin:0">
+            <input class="form-check-input" type="radio" name="modeRadio" id="radioAppend"
+                   value="append" checked style="width:20px;height:20px">
+          </div>
+        </div>
+      </div>
+      <ul style="font-size:13px;color:var(--text-secondary);margin:0;padding-left:18px">
+        <li>New products in CSV → <strong>added</strong> to your list</li>
+        <li>Products already in system (matching name/SKU/barcode) → <strong>updated</strong> with CSV values</li>
+        <li>Products <em>not</em> in CSV → <strong>untouched</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="mode-card" id="cardReplace" onclick="selectMode('replace')"
+         style="border:2px solid var(--border-color);border-radius:var(--radius);padding:20px;cursor:pointer;
+                background:var(--bg-surface);transition:all .2s">
+      <div class="d-flex align-items-center gap-3 mb-2">
+        <div class="stat-card-icon red" style="width:44px;height:44px;font-size:20px">
+          <i class="bi bi-arrow-repeat"></i>
+        </div>
+        <div>
+          <div class="fw-bold fs-6">Replace All</div>
+          <div style="font-size:12px;color:var(--text-muted)">Deactivates all {{ existing_count }} current products first</div>
+        </div>
+        <div class="ms-auto">
+          <div class="form-check" style="margin:0">
+            <input class="form-check-input" type="radio" name="modeRadio" id="radioReplace"
+                   value="replace" style="width:20px;height:20px">
+          </div>
+        </div>
+      </div>
+      <ul style="font-size:13px;color:var(--text-secondary);margin:0;padding-left:18px">
+        <li>All existing products → <strong class="text-warning">deactivated</strong></li>
+        <li>CSV products → added fresh as new products</li>
+        <li>Sales history is preserved (deactivated ≠ deleted)</li>
+      </ul>
+      <div class="mt-2 p-2" style="background:rgba(239,68,68,.1);border-radius:6px;font-size:12px;color:var(--danger)">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Use only if you're doing a complete product list overhaul.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-3">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-file-earmark-text"></i></div>
+      <div class="stat-card-value">{{ rows|length }}</div>
+      <div class="stat-card-label">Rows in CSV</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="stat-card">
+      <div class="stat-card-icon indigo"><i class="bi bi-box-seam"></i></div>
+      <div class="stat-card-value">{{ existing_count }}</div>
+      <div class="stat-card-label">Existing Products</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="stat-card">
+      <div class="stat-card-icon amber"><i class="bi bi-tags"></i></div>
+      <div class="stat-card-value">{{ rows|map(attribute='category')|select|unique|list|length }}</div>
+      <div class="stat-card-label">Categories in CSV</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="stat-card">
+      <div class="stat-card-icon blue"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-card-value">{{ rows|length }}</div>
+      <div class="stat-card-label">Total Items</div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Table -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-2"></i>Data Preview (first {{ [rows|length, 20]|min }} of {{ rows|length }} rows)</span>
+    <span style="font-size:12px;color:var(--text-muted)">Scroll right to see all columns →</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive" style="max-height:420px;overflow-y:auto">
+      <table class="table mb-0 table-sm">
+        <thead style="position:sticky;top:0;background:var(--bg-surface2);z-index:1">
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>SKU</th>
+            <th>Barcode</th>
+            <th>Category</th>
+            <th>Brand</th>
+            <th>Cost</th>
+            <th>Price</th>
+            <th>Tax%</th>
+            <th>Stock</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows[:20] %}
+          <tr>
+            <td style="color:var(--text-muted);font-size:11px">{{ loop.index }}</td>
+            <td class="fw-bold" style="font-size:13px;white-space:nowrap">
+              {{ row.get('name', '') }}
+            </td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ row.get('sku', '') or '—' }}</td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ row.get('barcode', '') or '—' }}</td>
+            <td>
+              {% if row.get('category') %}
+              <span class="badge bg-secondary">{{ row.get('category') }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:12px">{{ row.get('brand', '') or '—' }}</td>
+            <td style="font-size:12px">{{ row.get('cost_price', '') or '0' }}</td>
+            <td class="fw-bold" style="color:var(--brand-accent);font-size:13px">
+              {{ row.get('selling_price', '') or '0' }}
+            </td>
+            <td style="font-size:12px">{{ row.get('tax_percent', '') or '0' }}%</td>
+            <td>
+              {% set qty = row.get('stock_quantity', '0') or '0' %}
+              <span class="fw-bold {% if qty|int > 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ qty }}
+              </span>
+            </td>
+            <td style="font-size:11px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              {{ row.get('description', '') or '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if rows|length > 20 %}
+          <tr>
+            <td colspan="11" class="text-center text-muted py-3" style="font-size:13px">
+              <i class="bi bi-three-dots me-1"></i>
+              {{ rows|length - 20 }} more rows not shown in preview
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Action Buttons -->
+<form method="POST" action="{{ url_for('import_csv_execute') }}" id="importForm">
+  <input type="hidden" name="mode" id="modeInput" value="append">
+  <input type="hidden" name="token" value="{{ token }}">
+
+  <div class="d-flex gap-3 align-items-center flex-wrap">
+    <button type="submit" class="btn btn-primary btn-lg fw-bold px-5" id="importBtn">
+      <i class="bi bi-cloud-upload me-2"></i>
+      <span id="importBtnText">Add / Merge {{ rows|length }} Products</span>
+    </button>
+    <a href="{{ url_for('products') }}" class="btn btn-outline-secondary btn-lg">
+      <i class="bi bi-x-lg me-1"></i>Cancel
+    </a>
+    <div class="ms-2" style="font-size:13px;color:var(--text-muted)">
+      <i class="bi bi-info-circle me-1"></i>
+      This action cannot be undone. Make sure the preview looks correct.
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentMode = 'append';
+
+function selectMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeInput').value = mode;
+  document.getElementById('radioAppend').checked  = (mode === 'append');
+  document.getElementById('radioReplace').checked = (mode === 'replace');
+
+  const cardAppend  = document.getElementById('cardAppend');
+  const cardReplace = document.getElementById('cardReplace');
+
+  if (mode === 'append') {
+    cardAppend.style.border   = '2px solid var(--brand-accent)';
+    cardAppend.style.background = 'rgba(99,102,241,.08)';
+    cardReplace.style.border  = '2px solid var(--border-color)';
+    cardReplace.style.background = 'var(--bg-surface)';
+    document.getElementById('importBtn').className = 'btn btn-primary btn-lg fw-bold px-5';
+    document.getElementById('importBtnText').textContent = 'Add / Merge {{ rows|length }} Products';
+  } else {
+    cardReplace.style.border  = '2px solid var(--danger)';
+    cardReplace.style.background = 'rgba(239,68,68,.06)';
+    cardAppend.style.border   = '2px solid var(--border-color)';
+    cardAppend.style.background = 'var(--bg-surface)';
+    document.getElementById('importBtn').className = 'btn btn-danger btn-lg fw-bold px-5';
+    document.getElementById('importBtnText').textContent = '⚠ Replace All — Import {{ rows|length }} Products';
+  }
+}
+
+// Also handle clicking the radio buttons directly
+document.getElementById('radioAppend').addEventListener('change',  () => selectMode('append'));
+document.getElementById('radioReplace').addEventListener('change', () => selectMode('replace'));
+
+// Confirm on replace
+document.getElementById('importForm').addEventListener('submit', function(e) {
+  if (currentMode === 'replace') {
+    if (!confirm('This will deactivate ALL {{ existing_count }} existing products and replace with CSV data.\n\nAre you sure?')) {
+      e.preventDefault();
+    }
+  }
+});
+</script>
+{% endblock %}

@@ -28,7 +28,8 @@
             <td>
               <div class="d-flex gap-1">
                 <a href="{{ url_for('edit_customer', customer_id=c.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                <a href="{{ url_for('customer_history', customer_id=c.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history"></i></a>
+                <a href="{{ url_for('customer_history', customer_id=c.id) }}" class="btn btn-sm btn-outline-secondary" title="Purchase History"><i class="bi bi-clock-history"></i></a>
+                <a href="{{ url_for('customer_ledger', customer_id=c.id) }}" class="btn btn-sm btn-outline-info" title="Ledger"><i class="bi bi-journal-text"></i></a>
                 {% if current_user.is_super_admin() %}
                 <form method="POST" action="{{ url_for('delete_customer', customer_id=c.id) }}" onsubmit="return confirm('Delete customer?')">
                   <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>

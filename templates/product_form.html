@@ -1,39 +1,52 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit' if product else 'Add' }} Product{% endblock %}
 {% block page_title %}{{ 'Edit' if product else 'Add' }} Product{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-10">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-box-seam me-2"></i>{{ 'Edit Product' if product else 'Add New Product' }}</span>
-        <a href="{{ url_for('products') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+        <a href="{{ url_for('products') }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
       </div>
       <div class="card-body">
         <form method="POST" enctype="multipart/form-data">
+
+          <!-- ── Basic Info ── -->
           <div class="row g-3">
             <div class="col-md-8">
               <label class="form-label">Product Name *</label>
-              <input type="text" name="name" class="form-control" required value="{{ product.name if product else '' }}">
+              <input type="text" name="name" class="form-control" required
+                     value="{{ product.name if product else '' }}">
             </div>
             <div class="col-md-4">
               <label class="form-label">Variant Name</label>
-              <input type="text" name="variant_name" class="form-control" placeholder="e.g. Size: L, Color: Red" value="{{ product.variant_name or '' if product else '' }}">
+              <input type="text" name="variant_name" class="form-control"
+                     placeholder="e.g. Size: L, Color: Red"
+                     value="{{ product.variant_name or '' if product else '' }}">
             </div>
             <div class="col-md-3">
               <label class="form-label">SKU</label>
-              <input type="text" name="sku" class="form-control" placeholder="Stock Keeping Unit" value="{{ product.sku or '' if product else '' }}">
+              <input type="text" name="sku" class="form-control" placeholder="Stock Keeping Unit"
+                     value="{{ product.sku or '' if product else '' }}">
             </div>
             <div class="col-md-3">
               <label class="form-label">Barcode</label>
-              <input type="text" name="barcode" class="form-control" placeholder="Scan or enter barcode" value="{{ product.barcode or '' if product else '' }}">
+              <input type="text" name="barcode" class="form-control" placeholder="Scan or enter"
+                     value="{{ product.barcode or '' if product else '' }}">
             </div>
             <div class="col-md-3">
               <label class="form-label">Category</label>
               <select name="category_id" class="form-select">
                 <option value="">— None —</option>
                 {% for cat in categories %}
-                <option value="{{ cat.id }}" {% if product and product.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                <option value="{{ cat.id }}"
+                  {% if product and product.category_id == cat.id %}selected{% endif %}>
+                  {{ cat.name }}
+                </option>
                 {% endfor %}
               </select>
             </div>
@@ -42,58 +55,223 @@
               <select name="brand_id" class="form-select">
                 <option value="">— None —</option>
                 {% for brand in brands %}
-                <option value="{{ brand.id }}" {% if product and product.brand_id == brand.id %}selected{% endif %}>{{ brand.name }}</option>
+                <option value="{{ brand.id }}"
+                  {% if product and product.brand_id == brand.id %}selected{% endif %}>
+                  {{ brand.name }}
+                </option>
                 {% endfor %}
               </select>
             </div>
+          </div>
+
+          <hr style="border-color:var(--border-color);margin:20px 0">
+
+          <!-- ── Pricing Mode Toggle ── -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">Pricing Mode</label>
+            <div class="d-flex gap-3 flex-wrap">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pricing_mode"
+                       id="modeFixed" value="fixed"
+                       {% if not product or not product.is_weight_based %}checked{% endif %}
+                       onchange="togglePricingMode('fixed')">
+                <label class="form-check-label" for="modeFixed">
+                  <i class="bi bi-tag me-1"></i><strong>Fixed Price</strong>
+                  <span class="text-muted" style="font-size:12px">— standard item with one price</span>
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pricing_mode"
+                       id="modeWeight" value="weight"
+                       {% if product and product.is_weight_based %}checked{% endif %}
+                       onchange="togglePricingMode('weight')">
+                <label class="form-check-label" for="modeWeight">
+                  <i class="bi bi-droplet-half me-1"></i><strong>Weight / Quantity Based</strong>
+                  <span class="text-muted" style="font-size:12px">— price × weight entered at billing</span>
+                </label>
+              </div>
+            </div>
+            <!-- Hidden field for is_weight_based -->
+            <input type="hidden" name="is_weight_based" id="isWeightBasedInput" value="">
+          </div>
+
+          <!-- ── FIXED PRICE section ── -->
+          <div id="fixedPriceSection" class="row g-3 mb-3">
             <div class="col-md-3">
               <label class="form-label">Cost Price</label>
               <div class="input-group">
                 <span class="input-group-text">{{ settings.currency_symbol }}</span>
-                <input type="number" name="cost_price" class="form-control" step="0.01" min="0" value="{{ product.cost_price if product else '0' }}">
+                <input type="number" name="cost_price" class="form-control" step="0.01" min="0"
+                       value="{{ product.cost_price if product else '0' }}">
               </div>
             </div>
             <div class="col-md-3">
               <label class="form-label">Selling Price *</label>
               <div class="input-group">
                 <span class="input-group-text">{{ settings.currency_symbol }}</span>
-                <input type="number" name="selling_price" class="form-control" step="0.01" min="0" required value="{{ product.selling_price if product else '0' }}">
+                <input type="number" name="selling_price" id="sellingPriceInput"
+                       class="form-control" step="0.01" min="0"
+                       value="{{ product.selling_price if product else '0' }}">
               </div>
             </div>
             <div class="col-md-3">
               <label class="form-label">GST / Tax %</label>
               <div class="input-group">
-                <input type="number" name="tax_percent" class="form-control" step="0.01" min="0" max="100" value="{{ product.tax_percent if product else settings.default_tax_rate }}">
+                <input type="number" name="tax_percent" class="form-control"
+                       step="0.01" min="0" max="100"
+                       value="{{ product.tax_percent if product else settings.default_tax_rate }}">
                 <span class="input-group-text">%</span>
               </div>
             </div>
             <div class="col-md-3">
               <label class="form-label">Stock Quantity</label>
-              <input type="number" name="stock_quantity" class="form-control" min="0" value="{{ product.stock_quantity if product else '0' }}" {% if product %}readonly{% endif %}>
-              {% if product %}<div class="form-text">Use <a href="{{ url_for('inventory') }}">Inventory</a> to adjust stock.</div>{% endif %}
+              <input type="number" name="stock_quantity" class="form-control" min="0"
+                     value="{{ product.stock_quantity if product else '0' }}"
+                     {% if product %}readonly{% endif %}>
+              {% if product %}
+              <div class="form-text">Use <a href="{{ url_for('inventory') }}">Inventory</a> to adjust.</div>
+              {% endif %}
             </div>
+          </div>
+
+          <!-- ── WEIGHT BASED section ── -->
+          <div id="weightSection" class="mb-3" style="display:none">
+            <div class="card" style="border:2px solid rgba(99,102,241,.3);background:rgba(99,102,241,.04)">
+              <div class="card-body">
+                <div class="fw-bold mb-3" style="color:var(--brand-accent)">
+                  <i class="bi bi-speedometer2 me-2"></i>Weight / Quantity Pricing Setup
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Unit of Measure</label>
+                    <select name="price_unit" id="priceUnitSelect" class="form-select"
+                            onchange="updateUnitLabel()">
+                      {% set units = [('kg','Kilogram (kg)'),('g','Gram (g)'),('litre','Litre'),
+                                      ('ml','Millilitre (ml)'),('piece','Piece / Unit'),
+                                      ('dozen','Dozen'),('metre','Metre'),('foot','Foot'),
+                                      ('pound','Pound (lb)'),('custom','Custom')] %}
+                      {% for val, label in units %}
+                      <option value="{{ val }}"
+                        {% if product and product.price_unit == val %}selected{% endif %}>
+                        {{ label }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Cost Price per <span class="unit-label">kg</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text">{{ settings.currency_symbol }}</span>
+                      <input type="number" name="cost_price" class="form-control"
+                             step="0.01" min="0"
+                             value="{{ product.cost_price if product else '0' }}">
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Selling Price per <span class="unit-label">kg</span> *</label>
+                    <div class="input-group">
+                      <span class="input-group-text">{{ settings.currency_symbol }}</span>
+                      <input type="number" name="price_per_unit" id="pricePerUnitInput"
+                             class="form-control" step="0.01" min="0"
+                             value="{{ product.price_per_unit if product else '0' }}"
+                             oninput="updateWeightPreview()">
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">GST / Tax %</label>
+                    <div class="input-group">
+                      <input type="number" name="tax_percent" class="form-control"
+                             step="0.01" min="0" max="100"
+                             value="{{ product.tax_percent if product else settings.default_tax_rate }}">
+                      <span class="input-group-text">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Live price preview -->
+                <div id="weightPreview" class="mt-3 p-3"
+                     style="background:rgba(99,102,241,.1);border-radius:8px;font-size:13px">
+                  <div class="fw-bold mb-2">
+                    <i class="bi bi-calculator me-1"></i>Price Preview
+                  </div>
+                  <div class="row g-2 text-center">
+                    {% for w in [0.25, 0.5, 0.75, 1, 1.5, 2, 5] %}
+                    <div class="col-auto">
+                      <div style="background:var(--bg-surface);border-radius:6px;padding:6px 12px;
+                                  border:1px solid var(--border-color)">
+                        <div style="font-size:11px;color:var(--text-muted)" class="weight-label">{{ w }} kg</div>
+                        <div class="fw-bold preview-price" data-weight="{{ w }}" style="color:var(--brand-accent)">—</div>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                <div class="mt-3 row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Stock Quantity</label>
+                    <input type="number" name="stock_quantity" class="form-control" min="0"
+                           value="{{ product.stock_quantity if product else '0' }}"
+                           {% if product %}readonly{% endif %}>
+                    {% if product %}
+                    <div class="form-text">Use <a href="{{ url_for('inventory') }}">Inventory</a> to adjust.</div>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Low Stock Alert</label>
+                    <input type="number" name="low_stock_threshold" class="form-control" min="0"
+                           value="{{ product.low_stock_threshold if product else '5' }}">
+                  </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0" style="font-size:13px">
+                  <i class="bi bi-info-circle me-2"></i>
+                  At billing time the cashier will be asked to enter the <strong>weight/quantity</strong>.
+                  The total price = <strong>Price per {{ ''+( product.price_unit if product else 'kg') }}</strong>
+                  × <strong>entered quantity</strong>.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Low stock threshold (fixed mode) ── -->
+          <div class="row g-3 mb-3" id="fixedExtraRow">
             <div class="col-md-3">
               <label class="form-label">Low Stock Alert</label>
-              <input type="number" name="low_stock_threshold" class="form-control" min="0" value="{{ product.low_stock_threshold if product else '5' }}">
+              <input type="number" name="low_stock_threshold" class="form-control" min="0"
+                     value="{{ product.low_stock_threshold if product else '5' }}">
             </div>
             <div class="col-md-3">
               <label class="form-label">Expiry Date</label>
-              <input type="date" name="expiry_date" class="form-control" value="{{ product.expiry_date.strftime('%Y-%m-%d') if product and product.expiry_date else '' }}">
+              <input type="date" name="expiry_date" class="form-control"
+                     value="{{ product.expiry_date.strftime('%Y-%m-%d') if product and product.expiry_date else '' }}">
             </div>
-            <div class="col-md-12">
-              <label class="form-label">Description</label>
-              <textarea name="description" class="form-control" rows="3">{{ product.description or '' if product else '' }}</textarea>
-            </div>
+          </div>
+
+          <!-- ── Image & Description ── -->
+          <div class="row g-3 mb-4">
             <div class="col-md-6">
               <label class="form-label">Product Image</label>
               {% if product and product.image %}
-              <div class="mb-2"><img src="/static/uploads/{{ product.image }}" style="height:80px;border-radius:8px;object-fit:cover"></div>
+              <div class="mb-2">
+                <img src="/static/uploads/{{ product.image }}"
+                     style="height:80px;border-radius:8px;object-fit:cover">
+              </div>
               {% endif %}
-              <input type="file" name="image" class="form-control" accept=".png,.jpg,.jpeg,.gif,.webp">
+              <input type="file" name="image" class="form-control"
+                     accept=".png,.jpg,.jpeg,.gif,.webp">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control" rows="3">{{ product.description or '' if product else '' }}</textarea>
             </div>
           </div>
-          <div class="d-flex gap-2 mt-4">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'Update Product' if product else 'Add Product' }}</button>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg me-1"></i>
+              {{ 'Update Product' if product else 'Add Product' }}
+            </button>
             <a href="{{ url_for('products') }}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
@@ -101,4 +279,62 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENCY = "{{ settings.currency_symbol }}";
+
+function togglePricingMode(mode) {
+  const isWeight = (mode === 'weight');
+  document.getElementById('isWeightBasedInput').value = isWeight ? '1' : '';
+  document.getElementById('fixedPriceSection').style.display = isWeight ? 'none' : '';
+  document.getElementById('weightSection').style.display     = isWeight ? 'block' : 'none';
+  document.getElementById('fixedExtraRow').style.display     = isWeight ? 'none' : '';
+
+  // When switching to fixed, copy price_per_unit → selling_price if selling_price is 0
+  if (!isWeight) {
+    const ppu = parseFloat(document.getElementById('pricePerUnitInput').value) || 0;
+    const sp  = parseFloat(document.getElementById('sellingPriceInput').value) || 0;
+    if (sp === 0 && ppu > 0) document.getElementById('sellingPriceInput').value = ppu.toFixed(2);
+  }
+  if (isWeight) updateWeightPreview();
+}
+
+function updateUnitLabel() {
+  const unit = document.getElementById('priceUnitSelect').value;
+  document.querySelectorAll('.unit-label').forEach(el => el.textContent = unit);
+  document.querySelectorAll('.weight-label').forEach(el => {
+    const w = parseFloat(el.dataset ? '' : el.textContent);
+    // update preview weight labels
+  });
+  updateWeightPreview();
+}
+
+function updateWeightPreview() {
+  const ppu  = parseFloat(document.getElementById('pricePerUnitInput').value) || 0;
+  const unit = document.getElementById('priceUnitSelect').value;
+  const weights = [0.25, 0.5, 0.75, 1, 1.5, 2, 5];
+
+  document.querySelectorAll('.weight-label').forEach((el, i) => {
+    el.textContent = weights[i] + ' ' + unit;
+  });
+  document.querySelectorAll('.preview-price').forEach(el => {
+    const w = parseFloat(el.dataset.weight);
+    el.textContent = CURRENCY + (ppu * w).toFixed(2);
+  });
+}
+
+// Init on page load
+(function() {
+  const isWeight = {% if product and product.is_weight_based %}true{% else %}false{% endif %};
+  if (isWeight) {
+    document.getElementById('modeWeight').checked = true;
+    togglePricingMode('weight');
+  } else {
+    document.getElementById('modeFixed').checked = true;
+    togglePricingMode('fixed');
+  }
+})();
+</script>
 {% endblock %}

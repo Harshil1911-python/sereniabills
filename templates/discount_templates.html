@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Discount Templates{% endblock %}
+{% block page_title %}Discount Templates{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-tag me-2"></i>Add Discount Template</div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">Template Name *</label>
+            <input type="text" name="name" class="form-control" required
+                   placeholder="e.g. Senior Citizen 10%">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Discount Type</label>
+            <select name="type" class="form-select" id="discTypeSelect">
+              <option value="percent">Percentage (%)</option>
+              <option value="flat">Flat Amount ({{ settings.currency_symbol }})</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Value</label>
+            <div class="input-group">
+              <input type="number" name="value" class="form-control"
+                     step="0.01" min="0" required placeholder="0">
+              <span class="input-group-text" id="discTypeSuffix">%</span>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input type="text" name="description" class="form-control"
+                   placeholder="Optional notes about this discount">
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-plus-lg me-1"></i>Add Template
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-tags me-2"></i>All Discount Templates</div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Value</th><th>Description</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for t in templates %}
+            <tr>
+              <td class="fw-bold">{{ t.name }}</td>
+              <td>
+                <span class="badge {% if t.type == 'percent' %}bg-primary{% else %}bg-success{% endif %}">
+                  {{ 'Percentage' if t.type == 'percent' else 'Flat' }}
+                </span>
+              </td>
+              <td class="fw-bold" style="color:var(--brand-accent)">
+                {% if t.type == 'percent' %}{{ t.value }}%{% else %}{{ settings.currency_symbol }}{{ "%.2f"|format(t.value) }}{% endif %}
+              </td>
+              <td style="font-size:13px;color:var(--text-muted)">{{ t.description or '—' }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('delete_discount_template', tid=t.id) }}"
+                      onsubmit="return confirm('Delete this template?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5">
+                <div class="empty-state"><i class="bi bi-tag"></i><p>No discount templates yet.</p></div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-3" style="font-size:13px">
+      <i class="bi bi-info-circle me-2"></i>
+      Discount templates appear as quick-select buttons in the Text POS billing screen,
+      so cashiers can apply standard discounts with one click.
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('discTypeSelect').addEventListener('change', function() {
+  document.getElementById('discTypeSuffix').textContent = this.value === 'percent' ? '%' : '{{ settings.currency_symbol }}';
+});
+</script>
+{% endblock %}

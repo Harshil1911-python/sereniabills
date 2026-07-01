@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Shift Management{% endblock %}
+{% block page_title %}Shift / Cash Register{% endblock %}
+{% block content %}
+<div class="row g-3">
+
+  <!-- LEFT: Current Shift -->
+  <div class="col-lg-5">
+    {% if open_shift %}
+    <!-- Shift is OPEN -->
+    <div class="card mb-3" style="border:2px solid var(--success)">
+      <div class="card-header" style="background:rgba(16,185,129,.1)">
+        <span class="fw-bold" style="color:var(--success)">
+          <i class="bi bi-circle-fill me-2" style="font-size:10px;animation:pulse 2s infinite"></i>
+          Shift Open
+        </span>
+        <span class="text-muted ms-2" style="font-size:12px">
+          Since {{ open_shift.opened_at.strftime('%d %b %Y, %H:%M') }}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <div style="background:var(--bg-surface2);border-radius:8px;padding:12px;text-align:center">
+              <div class="fw-bold fs-5" style="color:var(--brand-accent)">
+                {{ settings.currency_symbol }}{{ "%.2f"|format(open_shift.opening_cash) }}
+              </div>
+              <div style="font-size:12px;color:var(--text-muted)">Opening Cash</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="background:var(--bg-surface2);border-radius:8px;padding:12px;text-align:center">
+              <div class="fw-bold fs-5 text-success">
+                {{ settings.currency_symbol }}{{ "%.2f"|format(shift_sales|sum(attribute='grand_total')) }}
+              </div>
+              <div style="font-size:12px;color:var(--text-muted)">Sales This Shift</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="background:var(--bg-surface2);border-radius:8px;padding:12px;text-align:center">
+              <div class="fw-bold fs-5">{{ shift_sales|length }}</div>
+              <div style="font-size:12px;color:var(--text-muted)">Bills Created</div>
+            </div>
+          </div>
+          <div class="col-6">
+            {% set cash_sales = shift_sales|selectattr('payment_method','equalto','Cash')|sum(attribute='grand_total') %}
+            <div style="background:var(--bg-surface2);border-radius:8px;padding:12px;text-align:center">
+              <div class="fw-bold fs-5 text-warning">
+                {{ settings.currency_symbol }}{{ "%.2f"|format(open_shift.opening_cash + cash_sales) }}
+              </div>
+              <div style="font-size:12px;color:var(--text-muted)">Expected Cash</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Close Shift Form -->
+        <form method="POST">
+          <input type="hidden" name="action" value="close">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Actual Closing Cash</label>
+            <div class="input-group">
+              <span class="input-group-text">{{ settings.currency_symbol }}</span>
+              <input type="number" name="closing_cash" class="form-control form-control-lg"
+                     step="0.01" min="0" placeholder="Count your cash" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control" rows="2" placeholder="Closing notes…"></textarea>
+          </div>
+          <button type="submit" class="btn btn-danger w-100 fw-bold">
+            <i class="bi bi-stop-circle me-1"></i>Close Shift
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bills during this shift -->
+    {% if shift_sales %}
+    <div class="card">
+      <div class="card-header">Bills This Shift ({{ shift_sales|length }})</div>
+      <div class="card-body p-0" style="max-height:280px;overflow-y:auto">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Invoice</th><th>Total</th><th>Method</th><th>Time</th></tr></thead>
+          <tbody>
+            {% for s in shift_sales %}
+            <tr>
+              <td><a href="{{ url_for('view_invoice', sale_id=s.id) }}" style="color:var(--brand-accent);font-weight:700">{{ s.invoice_number }}</a></td>
+              <td class="fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(s.grand_total) }}</td>
+              <td><span class="badge bg-secondary">{{ s.payment_method }}</span></td>
+              <td style="font-size:11px;color:var(--text-muted)">{{ s.created_at.strftime('%H:%M') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- No open shift — Open new one -->
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-play-circle me-2" style="color:var(--success)"></i>Open New Shift
+      </div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:13px">
+          Count the cash in your register and record the opening amount to start a new shift.
+        </p>
+        <form method="POST">
+          <input type="hidden" name="action" value="open">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Opening Cash Amount</label>
+            <div class="input-group">
+              <span class="input-group-text">{{ settings.currency_symbol }}</span>
+              <input type="number" name="opening_cash" class="form-control form-control-lg"
+                     step="0.01" min="0" value="0" required autofocus>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control" rows="2" placeholder="Shift notes…"></textarea>
+          </div>
+          <button type="submit" class="btn btn-success w-100 fw-bold">
+            <i class="bi bi-play-circle me-1"></i>Open Shift
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT: Shift History -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-clock-history me-2"></i>Shift History</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Opened</th><th>Closed</th><th>Opening</th>
+                <th>Closing</th><th>Expected</th><th>Difference</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for shift in past_shifts %}
+              <tr>
+                <td style="font-size:12px">{{ shift.opened_at.strftime('%d %b %H:%M') }}</td>
+                <td style="font-size:12px">{{ shift.closed_at.strftime('%H:%M') if shift.closed_at else '—' }}</td>
+                <td>{{ settings.currency_symbol }}{{ "%.2f"|format(shift.opening_cash) }}</td>
+                <td>{{ settings.currency_symbol }}{{ "%.2f"|format(shift.closing_cash) if shift.closing_cash is not none else '—' }}</td>
+                <td>{{ settings.currency_symbol }}{{ "%.2f"|format(shift.expected_cash) if shift.expected_cash is not none else '—' }}</td>
+                <td>
+                  {% if shift.difference is not none %}
+                  <span class="fw-bold {% if shift.difference < -1 %}text-danger{% elif shift.difference > 1 %}text-warning{% else %}text-success{% endif %}">
+                    {{ settings.currency_symbol }}{{ "%+.2f"|format(shift.difference) }}
+                  </span>
+                  {% else %}—{% endif %}
+                </td>
+                <td>
+                  <span class="status-badge {% if shift.status == 'open' %}status-held{% else %}status-completed{% endif %}">
+                    {{ shift.status.title() }}
+                  </span>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="text-center text-muted py-4">No shift history yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -4,12 +4,15 @@
 {% block content %}
 <div class="row g-3">
   {% set report_links = [
-    ('report_sales', 'bi-graph-up', 'Sales Report', 'Daily, weekly, monthly, yearly sales breakdown', 'indigo'),
-    ('report_products', 'bi-box-seam', 'Product Report', 'Top selling products by revenue and quantity', 'green'),
-    ('report_customers', 'bi-people', 'Customer Report', 'Customer spending and order history analysis', 'blue'),
-    ('report_inventory', 'bi-archive', 'Inventory Report', 'Stock levels, valuation, and low stock items', 'amber'),
-    ('report_profit', 'bi-graph-up-arrow', 'Profit Report', 'Revenue, cost, and profit margin analysis', 'purple'),
-    ('report_tax', 'bi-receipt-cutoff', 'Tax Report', 'GST and tax collection summary', 'red'),
+    ('report_sales',     'bi-graph-up',          'Sales Report',       'Daily, weekly, monthly, yearly sales breakdown',      'indigo'),
+    ('report_products',  'bi-box-seam',           'Product Report',     'Top selling products by revenue and quantity',         'green'),
+    ('report_customers', 'bi-people',             'Customer Report',    'Customer spending and order history analysis',         'blue'),
+    ('report_inventory', 'bi-archive',            'Inventory Report',   'Stock levels, valuation, and low stock items',        'amber'),
+    ('report_profit',    'bi-graph-up-arrow',     'Profit Report',      'Revenue, cost, and profit margin analysis',           'purple'),
+    ('report_tax',       'bi-receipt-cutoff',     'Tax Report',         'GST and tax collection summary by invoice',           'red'),
+    ('report_gst',       'bi-calculator',         'GST Slab Report',    'CGST/SGST breakdown by tax rate for filing',          'amber'),
+    ('daily_summary',    'bi-calendar-check',     'Daily Summary',      'End-of-day cash register close with full breakdown',  'green'),
+    ('shift_management', 'bi-clock-history',      'Shift Management',   'Open/close shifts, track cash register differences',  'indigo'),
   ] %}
   {% for endpoint, icon, title, desc, color in report_links %}
   <div class="col-md-6 col-xl-4">
@@ -42,6 +45,7 @@
       </div>
     </a>
   </div>
+
   <div class="col-md-6 col-xl-4">
     <a href="{{ url_for('export_report_csv', report_type='inventory') }}" class="text-decoration-none">
       <div class="card" style="transition:all .2s" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">

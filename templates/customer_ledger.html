@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Ledger — {{ customer.name }}{% endblock %}
+{% block page_title %}Customer Ledger — {{ customer.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <span class="fw-bold">{{ customer.name }}</span>
+    <span class="text-muted ms-2">{{ customer.phone }}</span>
+    {% if customer.email %}<span class="text-muted ms-2">{{ customer.email }}</span>{% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#payModal"
+            {% if customer.outstanding_balance <= 0 %}disabled{% endif %}>
+      <i class="bi bi-cash-coin me-1"></i>Record Payment
+    </button>
+    <a href="{{ url_for('customers') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon indigo"><i class="bi bi-receipt"></i></div>
+      <div class="stat-card-value">{{ ledger|length }}</div>
+      <div class="stat-card-label">Total Transactions</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_sales) }}</div>
+      <div class="stat-card-label">Total Billed</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon {% if current_balance > 0 %}red{% else %}green{% endif %}">
+        <i class="bi bi-wallet2"></i>
+      </div>
+      <div class="stat-card-value" style="color:{% if current_balance > 0 %}var(--danger){% else %}var(--success){% endif %}">
+        {{ settings.currency_symbol }}{{ "%.2f"|format(current_balance) }}
+      </div>
+      <div class="stat-card-label">Outstanding Balance</div>
+    </div>
+  </div>
+</div>
+
+<!-- Ledger Table -->
+<div class="card">
+  <div class="card-header"><i class="bi bi-journal-text me-2"></i>Transaction History</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Date</th><th>Type</th><th>Reference</th>
+            <th class="text-end">Billed</th><th class="text-end">Paid</th><th class="text-end">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Opening -->
+          <tr style="background:var(--bg-surface2)">
+            <td colspan="5" class="fw-bold text-muted" style="font-size:12px">Opening Balance</td>
+            <td class="text-end fw-bold">{{ settings.currency_symbol }}0.00</td>
+          </tr>
+          {% for row in ledger %}
+          <tr>
+            <td style="font-size:12px;color:var(--text-muted)">{{ row.date.strftime('%d %b %Y, %H:%M') }}</td>
+            <td>
+              <span class="status-badge {% if row.type == 'Sale' %}status-completed{% else %}status-refunded{% endif %}">
+                {{ row.type }}
+              </span>
+            </td>
+            <td>
+              <a href="{{ url_for('view_invoice', sale_id=row.sale_id) }}"
+                 class="fw-bold" style="color:var(--brand-accent)">{{ row.ref }}</a>
+            </td>
+            <td class="text-end">
+              {% if row.debit > 0 %}
+              <span class="text-danger fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(row.debit) }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.credit > 0 %}
+              <span class="text-success fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format(row.credit) }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-end fw-bold {% if row.balance > 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ settings.currency_symbol }}{{ "%.2f"|format(row.balance) }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+        {% if ledger %}
+        <tfoot style="background:var(--bg-surface2)">
+          <tr>
+            <td colspan="3" class="fw-bold text-end">Totals</td>
+            <td class="text-end fw-bold text-danger">{{ settings.currency_symbol }}{{ "%.2f"|format(total_sales) }}</td>
+            <td class="text-end fw-bold text-success">{{ settings.currency_symbol }}{{ "%.2f"|format(total_paid) }}</td>
+            <td class="text-end fw-bold {% if current_balance > 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ settings.currency_symbol }}{{ "%.2f"|format(current_balance) }}
+            </td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Pay Balance Modal -->
+<div class="modal fade" id="payModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
+      <div class="modal-header" style="border-color:var(--border-color)">
+        <h5 class="modal-title"><i class="bi bi-cash-coin me-2"></i>Record Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="POST" action="{{ url_for('pay_customer_balance', customer_id=customer.id) }}">
+          <div class="mb-3">
+            <label class="form-label">Amount Received</label>
+            <div class="input-group">
+              <span class="input-group-text">{{ settings.currency_symbol }}</span>
+              <input type="number" name="amount" class="form-control" step="0.01" min="0.01"
+                     max="{{ customer.outstanding_balance }}"
+                     value="{{ customer.outstanding_balance }}" required>
+            </div>
+            <div class="form-text">Outstanding: {{ settings.currency_symbol }}{{ "%.2f"|format(customer.outstanding_balance) }}</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Payment Method</label>
+            <select name="payment_method" class="form-select">
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="Card">Card</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-success w-100 fw-bold">
+            <i class="bi bi-check-lg me-1"></i>Record Payment
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

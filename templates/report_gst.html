@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}GST Report{% endblock %}
+{% block page_title %}GST / Tax Slab Report{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex gap-2">
+    {% for p, label in [('daily','Today'),('weekly','This Week'),('monthly','This Month'),('yearly','This Year')] %}
+    <a href="{{ url_for('report_gst', period=p) }}"
+       class="btn btn-sm {% if period == p %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <a href="{{ url_for('reports') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon indigo"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_taxable) }}</div>
+      <div class="stat-card-label">Total Taxable Value</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon amber"><i class="bi bi-receipt-cutoff"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_tax) }}</div>
+      <div class="stat-card-label">Total Tax Collected</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-card-icon green"><i class="bi bi-graph-up"></i></div>
+      <div class="stat-card-value">{{ settings.currency_symbol }}{{ "%.2f"|format(total_taxable + total_tax) }}</div>
+      <div class="stat-card-label">Total Invoice Value</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i class="bi bi-table me-2"></i>Tax Slab Breakdown</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>GST Slab</th>
+            <th class="text-end">Taxable Value</th>
+            <th class="text-end">CGST (50%)</th>
+            <th class="text-end">SGST (50%)</th>
+            <th class="text-end">Total Tax</th>
+            <th class="text-end">Invoice Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for slab in slabs %}
+          <tr>
+            <td>
+              <span class="fw-bold" style="font-size:15px;color:var(--brand-accent)">{{ slab.tax_percent }}%</span>
+              <span class="text-muted ms-2" style="font-size:12px">GST</span>
+            </td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format(slab.taxable or 0) }}</td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format((slab.tax_collected or 0) / 2) }}</td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format((slab.tax_collected or 0) / 2) }}</td>
+            <td class="text-end fw-bold text-warning">{{ settings.currency_symbol }}{{ "%.2f"|format(slab.tax_collected or 0) }}</td>
+            <td class="text-end fw-bold">{{ settings.currency_symbol }}{{ "%.2f"|format((slab.taxable or 0) + (slab.tax_collected or 0)) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No taxable sales in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+        {% if slabs %}
+        <tfoot style="background:var(--bg-surface2);font-weight:700">
+          <tr>
+            <td>Total</td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format(total_taxable) }}</td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format(total_tax / 2) }}</td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format(total_tax / 2) }}</td>
+            <td class="text-end text-warning">{{ settings.currency_symbol }}{{ "%.2f"|format(total_tax) }}</td>
+            <td class="text-end">{{ settings.currency_symbol }}{{ "%.2f"|format(total_taxable + total_tax) }}</td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-info mt-3" style="font-size:13px">
+  <i class="bi bi-info-circle me-2"></i>
+  CGST and SGST are each 50% of the total GST collected. For IGST (inter-state), the full amount applies.
+  This report covers period from <strong>{{ start.strftime('%d %b %Y') }}</strong>.
+</div>
+{% endblock %}

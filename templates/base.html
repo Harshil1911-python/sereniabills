@@ -48,6 +48,9 @@
       <a href="{{ url_for('inventory') }}" class="sb-link {% if request.endpoint == 'inventory' %}active{% endif %}">
         <i class="bi bi-archive"></i><span>Inventory</span>
       </a>
+      <a href="{{ url_for('bulk_stock_update') }}" class="sb-link {% if request.endpoint == 'bulk_stock_update' %}active{% endif %}">
+        <i class="bi bi-pencil-square"></i><span>Bulk Stock Update</span>
+      </a>
       <a href="{{ url_for('categories') }}" class="sb-link {% if request.endpoint == 'categories' %}active{% endif %}">
         <i class="bi bi-tags"></i><span>Categories</span>
       </a>
@@ -70,17 +73,26 @@
       <a href="{{ url_for('reports') }}" class="sb-link {% if 'report' in request.endpoint and 'daily' not in request.endpoint %}active{% endif %}">
         <i class="bi bi-bar-chart-line"></i><span>Reports</span>
       </a>
+      <a href="{{ url_for('report_gst') }}" class="sb-link {% if request.endpoint == 'report_gst' %}active{% endif %}">
+        <i class="bi bi-receipt-cutoff"></i><span>GST Report</span>
+      </a>
       <a href="{{ url_for('daily_summary') }}" class="sb-link {% if request.endpoint == 'daily_summary' %}active{% endif %}">
         <i class="bi bi-calendar-check"></i><span>Daily Summary</span>
       </a>
       <a href="{{ url_for('expenses') }}" class="sb-link {% if 'expense' in request.endpoint %}active{% endif %}">
         <i class="bi bi-wallet2"></i><span>Expenses</span>
       </a>
+      <a href="{{ url_for('shift_management') }}" class="sb-link {% if request.endpoint == 'shift_management' %}active{% endif %}">
+        <i class="bi bi-clock-history"></i><span>Shift / Register</span>
+      </a>
 
       {% if current_user.is_super_admin() %}
       <div class="sb-section-label">Admin</div>
       <a href="{{ url_for('admin_users') }}" class="sb-link {% if request.endpoint == 'admin_users' %}active{% endif %}">
         <i class="bi bi-person-badge"></i><span>Users</span>
+      </a>
+      <a href="{{ url_for('discount_templates') }}" class="sb-link {% if request.endpoint == 'discount_templates' %}active{% endif %}">
+        <i class="bi bi-tag"></i><span>Discounts</span>
       </a>
       <a href="{{ url_for('activity_logs') }}" class="sb-link {% if request.endpoint == 'activity_logs' %}active{% endif %}">
         <i class="bi bi-journal-text"></i><span>Activity Logs</span>

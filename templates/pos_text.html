@@ -138,6 +138,20 @@
                placeholder="Kitchen notes (restaurant)…">
       </div>
     </div>
+
+    <!-- Status bar -->
+    <div class="card">
+      <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center" style="font-size:12px;color:var(--text-muted)">
+        <div>
+          <strong>Shortcuts:</strong>
+          <span class="me-3"><kbd>F2</kbd> Search</span>
+          <span class="me-3"><kbd>F4</kbd> Checkout</span>
+          <span class="me-3"><kbd>F6</kbd> Hold</span>
+          <span class="me-3"><kbd>F8</kbd> Clear</span>
+        </div>
+        <div id="todaySalesDisplay" style="color:var(--brand-accent);font-weight:600"></div>
+      </div>
+    </div>
   </div>
 
   <!-- ══════════════ RIGHT PANEL — CART SUMMARY ══════════════ -->
@@ -164,6 +178,8 @@
                  style="width:82px;text-align:right" value="0" min="0" step="0.01" oninput="recalcTotals()">
         </div>
       </div>
+      <!-- Discount template quick buttons -->
+      <div id="discountTemplateBtns" class="d-flex gap-1 flex-wrap mt-1" style="padding:0 0 4px"></div>
       <div class="pos-total-row grand">
         <span>Grand Total</span>
         <span>{{ settings.currency_symbol }}<span id="grandTotalDisplay">0.00</span></span>
@@ -334,6 +350,44 @@
     </div>
   </div>
 </div>
+
+<!-- Weight Entry Modal -->
+<div class="modal fade" id="weightModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
+      <div class="modal-header" style="border-color:var(--border-color)">
+        <h6 class="modal-title">
+          <i class="bi bi-speedometer2 me-2" style="color:var(--brand-accent)"></i>
+          <span id="wmTitle">Enter Weight / Qty</span>
+        </h6>
+      </div>
+      <div class="modal-body pb-0">
+        <div id="wmProductInfo"
+             style="background:var(--bg-surface2);border-radius:8px;padding:12px;font-size:13px;margin-bottom:12px">
+        </div>
+        <label class="form-label fw-bold">
+          Quantity (<span id="wmUnitLabel">kg</span>):
+        </label>
+        <div class="input-group input-group-lg mb-2">
+          <input type="number" id="wmInput" class="form-control text-center fw-bold"
+                 placeholder="0.000" step="0.001" min="0.001" style="font-size:24px"
+                 oninput="wmUpdatePreview()">
+          <span class="input-group-text fw-bold" id="wmUnitSuffix">kg</span>
+        </div>
+        <div class="d-flex gap-1 flex-wrap mb-3" id="wmQuickBtns"></div>
+        <div class="alert alert-info py-2 mb-3" style="font-size:13px" id="wmPreview">
+          Enter quantity above
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color)">
+        <button class="btn btn-outline-secondary" onclick="cancelWM()">Cancel</button>
+        <button class="btn btn-primary flex-grow-1 fw-bold" onclick="confirmWM()">
+          <i class="bi bi-cart-plus me-1"></i>Add to Cart
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -453,6 +507,12 @@ function openProductView(p) {
 
 // ─── CART ─────────────────────────────────────────────────────────
 function addToCart(product, checkStock = true) {
+  // Weight-based products open the weight entry modal instead
+  if (product.is_weight_based) {
+    openWeightModal(product);
+    return;
+  }
+
   if (checkStock && product.stock_quantity <= 0) {
     if (!confirm(`${product.name} is out of stock. Add anyway?`)) return;
   }
@@ -788,9 +848,143 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// ─── DISCOUNT TEMPLATES ───────────────────────────────────────────
+async function loadDiscountTemplates() {
+  try {
+    const res       = await fetch('/api/discount-templates');
+    const templates = await res.json();
+    const container = document.getElementById('discountTemplateBtns');
+    if (!templates.length) return;
+    container.innerHTML = templates.map(t =>
+      `<button class="btn btn-xs btn-outline-secondary"
+               style="font-size:11px;padding:2px 8px"
+               onclick="applyDiscountTemplate('${t.type}',${t.value},'${t.name}')"
+               title="${t.name}">
+         ${t.name}
+       </button>`
+    ).join('');
+  } catch(e) {}
+}
+
+function applyDiscountTemplate(type, value, name) {
+  const grand = parseFloat(document.getElementById('grandTotalDisplay').textContent) || 0;
+  const sub   = parseFloat(document.getElementById('subtotalDisplay').textContent)   || 0;
+  let discAmt;
+  if (type === 'percent') {
+    discAmt = (sub * value / 100).toFixed(2);
+  } else {
+    discAmt = value.toFixed(2);
+  }
+  document.getElementById('billDiscount').value = discAmt;
+  recalcTotals();
+}
+
+loadDiscountTemplates();
+
+// ─── TODAY SALES COUNTER (shows in page) ──────────────────────────
+async function loadTodaySales() {
+  try {
+    const res  = await fetch('/api/sales/summary');
+    const data = await res.json();
+    const el   = document.getElementById('todaySalesDisplay');
+    if (el) el.textContent = `Today: ${CURRENCY}${data.today_total.toFixed(2)} (${data.today_count} bills)`;
+  } catch(e) {}
+}
+loadTodaySales();
+
 // ─── UTILS ───────────────────────────────────────────────────────
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ─── WEIGHT MODAL ─────────────────────────────────────────────────
+let wmProduct = null;
+let wmModal   = null;
+
+function openWeightModal(product) {
+  wmProduct = product;
+  const unit = product.price_unit || 'kg';
+
+  document.getElementById('wmTitle').textContent = product.name;
+  document.getElementById('wmUnitLabel').textContent = unit;
+  document.getElementById('wmUnitSuffix').textContent = unit;
+  document.getElementById('wmInput').value = '';
+  document.getElementById('wmPreview').textContent = 'Enter quantity above';
+  document.getElementById('wmProductInfo').innerHTML =
+    `<div class="fw-bold">${escHtml(product.name)}</div>
+     <div style="color:var(--text-muted)">Price: <strong style="color:var(--brand-accent)">${CURRENCY}${product.price_per_unit.toFixed(2)}</strong> per ${unit}
+     ${product.tax_percent > 0 ? ` + ${product.tax_percent}% GST` : ''}</div>`;
+
+  // Quick qty buttons depend on unit
+  const quickVals = unit === 'g' || unit === 'ml'
+    ? [50, 100, 250, 500, 750, 1000]
+    : unit === 'piece' || unit === 'dozen'
+    ? [1, 2, 3, 4, 5, 6, 10, 12]
+    : [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 5];
+
+  document.getElementById('wmQuickBtns').innerHTML = quickVals.map(v =>
+    `<button class="btn btn-sm btn-outline-secondary" style="font-size:12px"
+             onclick="wmSetQty(${v})">${v} ${unit}</button>`
+  ).join('');
+
+  wmModal = new bootstrap.Modal(document.getElementById('weightModal'));
+  wmModal.show();
+  setTimeout(() => document.getElementById('wmInput').focus(), 350);
+}
+
+function wmSetQty(v) {
+  document.getElementById('wmInput').value = v;
+  wmUpdatePreview();
+}
+
+function wmUpdatePreview() {
+  if (!wmProduct) return;
+  const qty      = parseFloat(document.getElementById('wmInput').value) || 0;
+  const basePrice = wmProduct.price_per_unit * qty;
+  const taxAmt   = basePrice * (wmProduct.tax_percent / 100);
+  const total    = basePrice + taxAmt;
+  const unit     = wmProduct.price_unit || 'kg';
+  if (qty > 0) {
+    document.getElementById('wmPreview').innerHTML =
+      `${qty} ${unit} × ${CURRENCY}${wmProduct.price_per_unit.toFixed(2)} = <strong>${CURRENCY}${basePrice.toFixed(2)}</strong>` +
+      (wmProduct.tax_percent > 0 ? ` + tax = <strong style="color:var(--brand-accent)">${CURRENCY}${total.toFixed(2)}</strong>` : '');
+  } else {
+    document.getElementById('wmPreview').textContent = 'Enter quantity above';
+  }
+}
+
+function confirmWM() {
+  const qty = parseFloat(document.getElementById('wmInput').value);
+  if (!qty || qty <= 0) { alert('Please enter a valid quantity.'); return; }
+  // Computed unit price = price_per_unit × qty (quantity is 1, price encodes the weight)
+  const computedPrice = wmProduct.price_per_unit * qty;
+  const cartItem = {
+    product_id:   wmProduct.id,
+    product_name: `${wmProduct.name} (${qty} ${wmProduct.price_unit || 'kg'})`,
+    unit_price:   computedPrice,
+    quantity:     1,
+    discount:     0,
+    tax_percent:  wmProduct.tax_percent,
+    image:        wmProduct.image || '',
+    _weight_qty:  qty,
+    _weight_unit: wmProduct.price_unit
+  };
+  // Don't merge weight items — each entry is a separate weighing
+  cart.push(cartItem);
+  wmModal.hide();
+  renderCart();
+  pushCartToDisplay();
+  searchInput.focus();
+}
+
+function cancelWM() {
+  wmModal?.hide();
+  searchInput.focus();
+}
+
+// Allow Enter key in weight modal
+document.getElementById('wmInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmWM();
+});
 </script>
 {% endblock %}

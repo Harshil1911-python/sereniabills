@@ -7,569 +7,337 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --accent:   #6366f1;
-      --accent2:  #8b5cf6;
-      --success:  #10b981;
-      --warning:  #f59e0b;
-      --danger:   #ef4444;
-      --bg:       #0b0e1a;
-      --surface:  #151929;
-      --surface2: #1c2138;
-      --border:   rgba(255,255,255,.07);
-      --text:     #e2e8f0;
-      --muted:    rgba(255,255,255,.35);
+      --accent: #6366f1; --accent2: #8b5cf6; --success: #10b981;
+      --bg: #0b0e1a; --surface: #151929; --surface2: #1c2138;
+      --border: rgba(255,255,255,.07); --text: #e2e8f0; --muted: rgba(255,255,255,.35);
     }
-
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column;
     }
 
-    /* ── TOP HEADER ── */
+    /* HEADER */
     .cd-header {
-      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      background: linear-gradient(135deg, var(--surface), var(--surface2));
       border-bottom: 1px solid var(--border);
-      padding: 0 32px;
-      height: 72px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 0 28px; height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0;
     }
-    .cd-brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
+    .cd-brand { display: flex; align-items: center; gap: 12px; }
     .cd-logo {
-      width: 46px; height: 46px;
+      width: 44px; height: 44px; border-radius: 11px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
     }
-    .cd-logo img { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; }
-    .cd-name { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
-    .cd-tagline { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .cd-logo img { width: 44px; height: 44px; border-radius: 11px; object-fit: cover; }
+    .cd-name { font-size: 20px; font-weight: 800; color: #fff; }
+    .cd-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .cd-time { font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 2px; text-align: right; }
+    .cd-date { font-size: 12px; color: var(--muted); text-align: right; margin-top: 3px; }
 
-    .cd-clock-wrap { text-align: right; }
-    .cd-time { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: 2px; line-height: 1; }
-    .cd-date { font-size: 13px; color: var(--muted); margin-top: 4px; }
-
-    /* ── STATUS BAR ── */
+    /* STATUS */
     .cd-status {
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
-      padding: 6px 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 12px;
-      color: var(--muted);
-      flex-shrink: 0;
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      padding: 5px 28px; display: flex; align-items: center;
+      justify-content: space-between; font-size: 12px; color: var(--muted); flex-shrink: 0;
     }
-    .cd-live-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-      display: inline-block;
-      margin-right: 6px;
-      animation: pulse 2s infinite;
+    .dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; margin-right: 6px;
+      background: var(--success); animation: pulse 2s infinite;
     }
-    .cd-live-dot.stale { background: var(--warning); }
-    .cd-live-dot.error { background: var(--danger); animation: none; }
+    .dot.err { background: #ef4444; animation: none; }
     @keyframes pulse {
-      0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,.4); }
-      50%      { opacity: .6; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+      0%,100% { opacity:1; } 50% { opacity:.35; }
     }
 
-    /* ── BODY ── */
-    .cd-body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
+    /* BODY */
+    .cd-body { display: flex; flex: 1; overflow: hidden; }
 
-    /* ── ITEM LIST ── */
-    .cd-items {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+    /* ITEMS LIST */
+    .cd-items { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 9px; }
     .cd-items::-webkit-scrollbar { width: 4px; }
     .cd-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-    /* ── ITEM CARD ── */
+    /* ITEM CARD */
     .cd-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      animation: itemIn .25s ease;
-      transition: border-color .2s;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 13px 16px; display: flex; align-items: center; gap: 14px;
+      animation: itemIn .22s ease;
     }
-    .cd-item.new-item { border-color: var(--accent); }
-    @keyframes itemIn {
-      from { opacity: 0; transform: translateY(-12px) scale(.97); }
-      to   { opacity: 1; transform: none; }
+    @keyframes itemIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+    .cd-thumb {
+      width: 54px; height: 54px; border-radius: 9px; flex-shrink: 0;
+      background: var(--surface2); display: flex; align-items: center;
+      justify-content: center; font-size: 24px; color: var(--muted); overflow: hidden;
     }
-    .cd-item-thumb {
-      width: 60px; height: 60px;
-      border-radius: 10px;
-      overflow: hidden;
-      flex-shrink: 0;
-      background: var(--surface2);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 26px;
-      color: var(--muted);
-    }
-    .cd-item-thumb img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-    }
-    .cd-item-info { flex: 1; min-width: 0; }
-    .cd-item-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .cd-item-meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
-    .cd-item-qty {
-      font-size: 22px;
-      font-weight: 900;
-      color: var(--accent);
-      width: 42px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    .cd-item-total {
-      font-size: 20px;
-      font-weight: 800;
-      color: #fff;
-      text-align: right;
-      flex-shrink: 0;
-      min-width: 100px;
-    }
+    .cd-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .cd-info { flex: 1; min-width: 0; }
+    .cd-item-name { font-size: 15px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cd-item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .cd-qty { font-size: 20px; font-weight: 900; color: var(--accent); width: 38px; text-align: center; flex-shrink: 0; }
+    .cd-total { font-size: 18px; font-weight: 800; color: #fff; min-width: 90px; text-align: right; flex-shrink: 0; }
 
-    /* ── EMPTY / WELCOME ── */
-    .cd-welcome {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      animation: fadeIn .4s ease;
+    /* WELCOME / THANKYOU */
+    .cd-center {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px; text-align: center;
     }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .cd-welcome-icon {
-      font-size: 80px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1;
-    }
-    .cd-welcome-title { font-size: 36px; font-weight: 800; color: rgba(255,255,255,.15); }
-    .cd-welcome-sub { font-size: 16px; color: rgba(255,255,255,.1); }
+    .cd-center-icon { font-size: 72px; line-height: 1; }
+    .cd-center-title { font-size: 32px; font-weight: 800; color: rgba(255,255,255,.15); }
+    .cd-center-sub   { font-size: 15px; color: rgba(255,255,255,.1); }
+    .cd-ty-title { font-size: 44px; font-weight: 900; color: #fff; }
+    .cd-ty-icon  { font-size: 80px; color: var(--success); }
 
-    /* ── THANK YOU ── */
-    .cd-thankyou {
-      flex: 1;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      animation: fadeIn .5s ease;
-    }
-    .cd-thankyou-icon { font-size: 90px; color: var(--success); line-height: 1; }
-    .cd-thankyou-title { font-size: 48px; font-weight: 900; color: #fff; }
-    .cd-thankyou-sub { font-size: 18px; color: var(--muted); }
-
-    /* ── SIDEBAR TOTALS ── */
+    /* SIDEBAR */
     .cd-sidebar {
-      width: 320px;
-      flex-shrink: 0;
-      background: var(--surface);
+      width: 310px; flex-shrink: 0; background: var(--surface);
       border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      padding: 24px 20px;
+      display: flex; flex-direction: column; padding: 22px 18px;
     }
     .cd-sidebar-title {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-      margin-bottom: 20px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.5px; color: var(--muted); margin-bottom: 18px;
     }
-    .cd-total-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-      color: var(--muted);
+    .tot-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+      font-size: 14px; color: var(--muted);
     }
-    .cd-total-row span:last-child { font-weight: 600; color: var(--text); }
+    .tot-row span:last-child { font-weight: 600; color: var(--text); }
     .cd-grand {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 16px;
-      padding: 16px;
+      margin-top: 14px; padding: 14px;
       background: linear-gradient(135deg, rgba(99,102,241,.2), rgba(139,92,246,.1));
-      border: 1px solid rgba(99,102,241,.3);
-      border-radius: 14px;
+      border: 1px solid rgba(99,102,241,.3); border-radius: 12px;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    .cd-grand-label { font-size: 14px; font-weight: 700; color: rgba(255,255,255,.7); }
-    .cd-grand-value {
-      font-size: 32px;
-      font-weight: 900;
-      color: #fff;
-      line-height: 1;
-      transition: all .3s;
-    }
-    .cd-grand-value.bump {
-      color: var(--success);
-      transform: scale(1.08);
+    .cd-grand-label { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.6); }
+    .cd-grand-value { font-size: 30px; font-weight: 900; color: #fff; transition: color .3s; }
+    .cd-grand-value.bump { color: var(--success); }
+    .cd-count { text-align: center; margin-top: 14px; font-size: 13px; color: var(--muted); }
+    .cd-count strong { display: block; font-size: 20px; color: var(--accent); }
+    .cd-store {
+      margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border);
+      text-align: center; color: var(--muted); font-size: 12px; line-height: 1.9;
     }
 
-    .cd-item-count {
-      text-align: center;
-      margin-top: 16px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .cd-item-count strong { color: var(--accent); font-size: 22px; display: block; }
-
-    .cd-store-info {
-      margin-top: auto;
-      padding-top: 20px;
-      border-top: 1px solid var(--border);
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.8;
-    }
-
-    /* ── FULLSCREEN BTN ── */
+    /* FULLSCREEN BTN */
     #fsBtn {
-      position: fixed;
-      bottom: 18px;
-      right: 18px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.12);
-      color: rgba(255,255,255,.5);
-      border-radius: 10px;
-      padding: 8px 14px;
-      cursor: pointer;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all .2s;
-      z-index: 999;
+      position: fixed; bottom: 16px; right: 16px;
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.45); border-radius: 9px;
+      padding: 7px 13px; cursor: pointer; font-size: 13px;
+      display: flex; align-items: center; gap: 6px;
+      transition: all .2s; z-index: 99;
     }
-    #fsBtn:hover { background: rgba(255,255,255,.14); color: #fff; }
+    #fsBtn:hover { background: rgba(255,255,255,.13); color: #fff; }
   </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="cd-header">
   <div class="cd-brand">
     {% if settings.logo %}
-      <div class="cd-logo"><img src="/static/uploads/{{ settings.logo }}" alt="Logo"></div>
+      <div class="cd-logo"><img src="/static/uploads/{{ settings.logo }}" alt=""></div>
     {% else %}
       <div class="cd-logo"><i class="bi bi-receipt-cutoff" style="color:#fff"></i></div>
     {% endif %}
     <div>
       <div class="cd-name">{{ settings.company_name }}</div>
-      <div class="cd-tagline">Customer Display — {{ cashier_name }}</div>
+      <div class="cd-sub">Customer Display — {{ cashier_name }}</div>
     </div>
   </div>
-  <div class="cd-clock-wrap">
-    <div class="cd-time" id="clockTime">--:--:--</div>
-    <div class="cd-date" id="clockDate"></div>
+  <div>
+    <div class="cd-time" id="clkTime"></div>
+    <div class="cd-date" id="clkDate"></div>
   </div>
 </div>
 
-<!-- STATUS BAR -->
 <div class="cd-status">
-  <div>
-    <span class="cd-live-dot" id="liveDot"></span>
-    <span id="liveStatus">Connecting…</span>
-  </div>
-  <div id="lastUpdated"></div>
-  <div>
-    {% if settings.gst_number %}GST: {{ settings.gst_number }} &nbsp;|&nbsp;{% endif %}
-    {{ settings.phone or '' }}
-  </div>
+  <div><span class="dot" id="dot"></span><span id="statusTxt">Connecting…</span></div>
+  <div id="lastUpd"></div>
+  <div>{% if settings.gst_number %}GST: {{ settings.gst_number }} &nbsp;|&nbsp;{% endif %}{{ settings.phone or '' }}</div>
 </div>
 
-<!-- BODY -->
 <div class="cd-body">
 
-  <!-- LEFT: Item list OR welcome/thankyou -->
-  <div class="cd-items" id="cdItemsWrap">
+  <!-- Left: items or state screens -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
 
-    <!-- Welcome state (default) -->
-    <div class="cd-welcome" id="cdWelcome">
-      <div class="cd-welcome-icon"><i class="bi bi-bag-heart-fill"></i></div>
-      <div class="cd-welcome-title">Welcome!</div>
-      <div class="cd-welcome-sub">Your bill will appear here as items are added</div>
+    <!-- Welcome -->
+    <div class="cd-center" id="scWelcome">
+      <div class="cd-center-icon" style="background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+        <i class="bi bi-bag-heart-fill"></i>
+      </div>
+      <div class="cd-center-title">Welcome!</div>
+      <div class="cd-center-sub">Your bill will appear here as items are added</div>
     </div>
 
-    <!-- Thank you state -->
-    <div class="cd-thankyou" id="cdThankYou">
-      <div class="cd-thankyou-icon"><i class="bi bi-check-circle-fill"></i></div>
-      <div class="cd-thankyou-title">Thank You!</div>
-      <div class="cd-thankyou-sub">Please visit us again 🙏</div>
+    <!-- Thank You -->
+    <div class="cd-center" id="scThankYou" style="display:none">
+      <div class="cd-ty-icon"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="cd-ty-title">Thank You!</div>
+      <div class="cd-center-sub" style="color:rgba(255,255,255,.35);font-size:16px">Please visit us again 🙏</div>
     </div>
 
-    <!-- Items rendered here -->
-    <div id="cdItemsList"></div>
+    <!-- Items list -->
+    <div class="cd-items" id="scItems" style="display:none"></div>
   </div>
 
-  <!-- RIGHT: Totals sidebar -->
+  <!-- Right: totals -->
   <div class="cd-sidebar">
     <div class="cd-sidebar-title">Bill Summary</div>
-
-    <div class="cd-total-row">
-      <span>Subtotal</span>
-      <span id="cdSubtotal">—</span>
-    </div>
-    <div class="cd-total-row">
-      <span>Tax (GST)</span>
-      <span id="cdTax">—</span>
-    </div>
-    <div class="cd-total-row">
-      <span>Discount</span>
-      <span id="cdDiscount">—</span>
-    </div>
-
+    <div class="tot-row"><span>Subtotal</span>   <span id="tSub">—</span></div>
+    <div class="tot-row"><span>Tax (GST)</span>  <span id="tTax">—</span></div>
+    <div class="tot-row"><span>Discount</span>   <span id="tDisc">—</span></div>
     <div class="cd-grand">
       <div class="cd-grand-label">TOTAL<br>PAYABLE</div>
-      <div class="cd-grand-value" id="cdGrand">—</div>
+      <div class="cd-grand-value" id="tGrand">—</div>
     </div>
-
-    <div class="cd-item-count">
-      <strong id="cdItemCount">0</strong>
-      items in cart
-    </div>
-
-    <div class="cd-store-info">
-      <div style="font-weight:700;color:rgba(255,255,255,.4);margin-bottom:4px">
-        {{ settings.company_name }}
-      </div>
+    <div class="cd-count"><strong id="tCount">0</strong>items in cart</div>
+    <div class="cd-store">
+      <div style="font-weight:700;color:rgba(255,255,255,.35);margin-bottom:3px">{{ settings.company_name }}</div>
       {% if settings.address %}<div>{{ settings.address }}</div>{% endif %}
-      {% if settings.phone %}<div><i class="bi bi-telephone"></i> {{ settings.phone }}</div>{% endif %}
-      {% if settings.email %}<div>{{ settings.email }}</div>{% endif %}
+      {% if settings.phone  %}<div><i class="bi bi-telephone"></i> {{ settings.phone }}</div>{% endif %}
+      {% if settings.email  %}<div>{{ settings.email }}</div>{% endif %}
     </div>
   </div>
 </div>
 
-<!-- Fullscreen button -->
 <button id="fsBtn" onclick="toggleFS()">
-  <i class="bi bi-fullscreen" id="fsIcon"></i> Fullscreen
+  <i class="bi bi-fullscreen" id="fsIco"></i> Fullscreen
 </button>
 
 <script>
-const CASHIER_ID = "{{ cashier_id }}";
-const CURRENCY   = "{{ settings.currency_symbol }}";
+const CASHIER = "{{ cashier_id }}";
+const CUR     = "{{ settings.currency_symbol }}";
 
 // ── Clock ─────────────────────────────────────────────────────────
-function tickClock() {
-  const now = new Date();
-  document.getElementById('clockTime').textContent =
-    now.toLocaleTimeString('en-IN', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  document.getElementById('clockDate').textContent =
-    now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+function tick() {
+  const n = new Date();
+  document.getElementById('clkTime').textContent =
+    n.toLocaleTimeString('en-IN',{hour12:true,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clkDate').textContent =
+    n.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 }
-setInterval(tickClock, 1000);
-tickClock();
+setInterval(tick, 1000); tick();
 
 // ── State ─────────────────────────────────────────────────────────
-let lastTs         = null;      // ISO timestamp of last received update
-let lastTotal      = '0.00';
-let thankYouTimer  = null;
-let pollFailCount  = 0;
-let isPolling      = false;
+let lastTs       = '';     // last _ts value we received
+let lastTotal    = '0.00';
+let tyTimer      = null;
+let failCount    = 0;
+let polling      = false;
 
-const dot        = document.getElementById('liveDot');
-const liveStatus = document.getElementById('liveStatus');
-const lastUpEl   = document.getElementById('lastUpdated');
+const dot        = document.getElementById('dot');
+const statusTxt  = document.getElementById('statusTxt');
+const lastUpdEl  = document.getElementById('lastUpd');
 
-function setStatus(state, msg) {
-  dot.className = 'cd-live-dot' + (state === 'ok' ? '' : state === 'stale' ? ' stale' : ' error');
-  liveStatus.textContent = msg;
-}
-
-// ── Long-poll loop ────────────────────────────────────────────────
+// ── Poll every 1 second ───────────────────────────────────────────
 async function poll() {
-  if (isPolling) return;
-  isPolling = true;
-
-  const url = lastTs
-    ? `/api/cart/state/${CASHIER_ID}?since=${encodeURIComponent(lastTs)}`
-    : `/api/cart/state/${CASHIER_ID}`;
-
+  if (polling) return;
+  polling = true;
   try {
-    const res = await fetch(url, {
-      // timeout via AbortController — 30 s should outlast server's 25 s hold
-      signal: AbortSignal.timeout(30000)
+    const res  = await fetch(`/api/cart/state/${CASHIER}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000)
     });
-
-    if (res.status === 304) {
-      // Nothing changed — immediately re-poll (server already waited 25 s)
-      pollFailCount = 0;
-      setStatus('ok', 'Live — no changes');
-      isPolling = false;
-      poll();
-      return;
-    }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    pollFailCount = 0;
+    failCount  = 0;
+    dot.className = 'dot';
 
-    const ts = data._ts || new Date().toISOString();
+    const ts = data._ts || '';
     if (ts !== lastTs) {
       lastTs = ts;
-      renderDisplay(data);
-      lastUpEl.textContent = 'Updated ' + new Date(ts).toLocaleTimeString('en-IN', { hour12: true });
+      render(data);
+      lastUpdEl.textContent = 'Updated ' +
+        new Date().toLocaleTimeString('en-IN',{hour12:true,hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
+    statusTxt.textContent = 'Live — synced';
 
-    setStatus('ok', 'Live — synced');
-    isPolling = false;
-    poll();  // immediately re-enter long-poll
-
-  } catch (err) {
-    pollFailCount++;
-    isPolling = false;
-    if (pollFailCount >= 3) {
-      setStatus('error', 'Connection lost — retrying…');
-    } else {
-      setStatus('stale', 'Reconnecting…');
-    }
-    // Back-off: 1s, 2s, 4s, then cap at 5s
-    const delay = Math.min(1000 * Math.pow(2, pollFailCount - 1), 5000);
-    setTimeout(poll, delay);
+  } catch(e) {
+    failCount++;
+    dot.className = 'dot err';
+    statusTxt.textContent = failCount > 3 ? 'Connection lost — retrying…' : 'Reconnecting…';
   }
+  polling = false;
 }
 
-// ── Render cart ───────────────────────────────────────────────────
-function renderDisplay(data) {
-  const items     = data.items || [];
-  const welcome   = document.getElementById('cdWelcome');
-  const thankYou  = document.getElementById('cdThankYou');
-  const itemsList = document.getElementById('cdItemsList');
+setInterval(poll, 1000);
+poll();   // immediate first call
 
-  const newTotal = data.total || '0.00';
-  const wasEmpty = lastTotal === '0.00';
-  const isEmpty  = !items.length;
+// ── Render ────────────────────────────────────────────────────────
+function render(data) {
+  const items    = data.items || [];
+  const newTotal = String(data.total || '0.00');
+  const wasEmpty = lastTotal === '0.00' || !lastTotal;
+  const isEmpty  = items.length === 0;
 
-  // ── Thank-you flash when cart goes from items → empty ────────────
-  if (!isEmpty) {
-    // Clear any pending thank-you timer
-    if (thankYouTimer) { clearTimeout(thankYouTimer); thankYouTimer = null; }
-    thankYou.style.display = 'none';
-  }
-
+  // Sale completed: cart went from items → empty
   if (isEmpty && !wasEmpty && parseFloat(lastTotal) > 0) {
-    // Cart just cleared after having items → sale completed
-    welcome.style.display  = 'none';
-    thankYou.style.display = 'flex';
-    itemsList.innerHTML    = '';
-    thankYouTimer = setTimeout(() => {
-      thankYou.style.display  = 'none';
-      welcome.style.display   = 'flex';
-    }, 6000);
+    showScreen('ty');
+    if (tyTimer) clearTimeout(tyTimer);
+    tyTimer = setTimeout(() => showScreen('welcome'), 6000);
     lastTotal = '0.00';
-    updateTotals(data);
-    document.getElementById('cdItemCount').textContent = 0;
+    updateTotals({ subtotal:'0.00', tax:'0.00', discount:'0.00', total:'0.00' });
+    document.getElementById('tCount').textContent = 0;
     return;
   }
 
   lastTotal = newTotal;
 
   if (isEmpty) {
-    welcome.style.display  = 'flex';
-    thankYou.style.display = 'none';
-    itemsList.innerHTML    = '';
+    if (document.getElementById('scThankYou').style.display === 'none') {
+      showScreen('welcome');
+    }
     updateTotals(data);
-    document.getElementById('cdItemCount').textContent = 0;
+    document.getElementById('tCount').textContent = 0;
     return;
   }
 
-  // ── Render items ──────────────────────────────────────────────
-  welcome.style.display  = 'none';
-  thankYou.style.display = 'none';
+  // Clear thank-you if new items came in
+  if (tyTimer) { clearTimeout(tyTimer); tyTimer = null; }
+  showScreen('items');
 
-  // Diff: track existing items by product_name to animate only new ones
-  const existingNames = new Set(
-    [...itemsList.querySelectorAll('.cd-item')].map(el => el.dataset.name)
-  );
-
-  itemsList.innerHTML = items.map((item, i) => {
-    const isNew     = !existingNames.has(item.product_name);
-    const unitPrice = parseFloat(item.unit_price || 0);
-    const qty       = parseInt(item.quantity || 1);
-    const lineTotal = parseFloat(item.line_total || 0);
-    const taxPct    = parseFloat(item.tax_percent || 0);
-
-    const imgHtml = item.image
+  const list = document.getElementById('scItems');
+  list.innerHTML = items.map((item, i) => {
+    const price = parseFloat(item.unit_price || 0);
+    const qty   = parseInt(item.quantity || 1);
+    const line  = parseFloat(item.line_total || 0);
+    const tax   = parseFloat(item.tax_percent || 0);
+    const img   = item.image
       ? `<img src="/static/uploads/${item.image}" alt=""
              onerror="this.parentElement.innerHTML='<i class=\\'bi bi-box\\'></i>'">`
       : `<i class="bi bi-box"></i>`;
-
     return `
-    <div class="cd-item${isNew ? ' new-item' : ''}" data-name="${escHtml(item.product_name)}"
-         style="animation-delay:${i * 0.04}s">
-      <div class="cd-item-thumb">${imgHtml}</div>
-      <div class="cd-item-info">
-        <div class="cd-item-name">${escHtml(item.product_name)}</div>
-        <div class="cd-item-meta">
-          ${CURRENCY}${unitPrice.toFixed(2)} each
-          ${taxPct > 0 ? `<span style="margin-left:8px;color:rgba(255,255,255,.25)">+${taxPct}% GST</span>` : ''}
-        </div>
+    <div class="cd-item" style="animation-delay:${i*0.03}s">
+      <div class="cd-thumb">${img}</div>
+      <div class="cd-info">
+        <div class="cd-item-name">${esc(item.product_name)}</div>
+        <div class="cd-item-meta">${CUR}${price.toFixed(2)} each${tax>0?' · '+tax+'% GST':''}</div>
       </div>
-      <div class="cd-item-qty">×${qty}</div>
-      <div class="cd-item-total">${CURRENCY}${lineTotal.toFixed(2)}</div>
+      <div class="cd-qty">×${qty}</div>
+      <div class="cd-total">${CUR}${line.toFixed(2)}</div>
     </div>`;
   }).join('');
 
-  // Remove new-item class after animation
-  setTimeout(() => {
-    itemsList.querySelectorAll('.cd-item.new-item').forEach(el => el.classList.remove('new-item'));
-  }, 600);
-
-  document.getElementById('cdItemCount').textContent = items.length;
+  document.getElementById('tCount').textContent = items.length;
   updateTotals(data);
 
-  // Scroll to bottom to show latest item
-  const wrap = document.getElementById('cdItemsWrap');
-  wrap.scrollTop = wrap.scrollHeight;
+  // Scroll to newest item
+  list.scrollTop = list.scrollHeight;
+}
+
+function showScreen(which) {
+  document.getElementById('scWelcome').style.display  = which==='welcome' ? 'flex' : 'none';
+  document.getElementById('scThankYou').style.display = which==='ty'      ? 'flex' : 'none';
+  document.getElementById('scItems').style.display    = which==='items'   ? 'flex' : 'none';
+  if (which !== 'items') document.getElementById('scItems').innerHTML = '';
 }
 
 function updateTotals(data) {
@@ -577,40 +345,33 @@ function updateTotals(data) {
   const tax  = parseFloat(data.tax      || 0);
   const disc = parseFloat(data.discount || 0);
   const tot  = parseFloat(data.total    || 0);
-
-  document.getElementById('cdSubtotal').textContent = sub  > 0 ? CURRENCY + sub.toFixed(2)  : '—';
-  document.getElementById('cdTax').textContent      = tax  > 0 ? CURRENCY + tax.toFixed(2)  : '—';
-  document.getElementById('cdDiscount').textContent = disc > 0 ? '-' + CURRENCY + disc.toFixed(2) : '—';
-
-  const grandEl = document.getElementById('cdGrand');
-  const newVal  = tot > 0 ? CURRENCY + tot.toFixed(2) : '—';
-  if (grandEl.textContent !== newVal) {
-    grandEl.textContent = newVal;
-    grandEl.classList.add('bump');
-    setTimeout(() => grandEl.classList.remove('bump'), 400);
+  document.getElementById('tSub').textContent  = sub  > 0 ? CUR+sub.toFixed(2)  : '—';
+  document.getElementById('tTax').textContent  = tax  > 0 ? CUR+tax.toFixed(2)  : '—';
+  document.getElementById('tDisc').textContent = disc > 0 ? '-'+CUR+disc.toFixed(2) : '—';
+  const gEl = document.getElementById('tGrand');
+  const nv  = tot > 0 ? CUR+tot.toFixed(2) : '—';
+  if (gEl.textContent !== nv) {
+    gEl.textContent = nv;
+    gEl.classList.add('bump');
+    setTimeout(() => gEl.classList.remove('bump'), 400);
   }
 }
 
-function escHtml(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── Fullscreen ────────────────────────────────────────────────────
 function toggleFS() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen();
-    document.getElementById('fsIcon').className = 'bi bi-fullscreen-exit';
-    document.getElementById('fsBtn').childNodes[1].textContent = ' Exit Fullscreen';
+    document.getElementById('fsIco').className = 'bi bi-fullscreen-exit';
+    document.getElementById('fsBtn').childNodes[1].textContent = ' Exit';
   } else {
     document.exitFullscreen();
-    document.getElementById('fsIcon').className = 'bi bi-fullscreen';
+    document.getElementById('fsIco').className = 'bi bi-fullscreen';
     document.getElementById('fsBtn').childNodes[1].textContent = ' Fullscreen';
   }
 }
-
-// ── Start ─────────────────────────────────────────────────────────
-setStatus('stale', 'Connecting…');
-poll();
 </script>
 </body>
 </html>

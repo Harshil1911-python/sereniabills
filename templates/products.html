@@ -93,15 +93,44 @@
   <div class="modal-dialog">
     <div class="modal-content" style="background:var(--bg-surface);color:var(--text-primary)">
       <div class="modal-header" style="border-color:var(--border-color)">
-        <h5 class="modal-title">Import Products CSV</h5>
+        <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Import Products from CSV</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small">CSV columns: <code>name, sku, barcode, category, brand, cost_price, selling_price, tax_percent, stock_quantity, low_stock_threshold, description</code></p>
+        <div class="alert alert-info mb-3" style="font-size:13px">
+          <i class="bi bi-info-circle me-2"></i>
+          After uploading, you'll see a <strong>preview</strong> of your data and choose whether to
+          <strong>add/merge</strong> with existing products or <strong>replace all</strong>.
+        </div>
+
+        <p class="text-muted" style="font-size:13px">
+          CSV must have a header row. Supported columns:
+        </p>
+        <code style="font-size:11px;display:block;background:var(--bg-surface2);padding:8px;border-radius:6px;margin-bottom:12px">
+          name, sku, barcode, category, brand, cost_price, selling_price, tax_percent, stock_quantity, low_stock_threshold, description
+        </code>
+        <p class="text-muted" style="font-size:12px">
+          Only <strong>name</strong> is required. All other columns are optional.
+          Extra columns are ignored. Excel .csv files are supported.
+        </p>
+
         <form method="POST" action="{{ url_for('import_products_csv') }}" enctype="multipart/form-data">
-          <input type="file" name="csv_file" class="form-control mb-3" accept=".csv" required>
-          <button type="submit" class="btn btn-primary w-100">Import</button>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Select CSV File</label>
+            <input type="file" name="csv_file" class="form-control" accept=".csv,.txt" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-eye me-1"></i>Preview & Choose Import Mode
+          </button>
         </form>
+
+        <hr style="border-color:var(--border-color);margin:16px 0">
+        <div style="font-size:12px;color:var(--text-muted)">
+          <strong>Download a sample CSV:</strong><br>
+          <a href="{{ url_for('export_products_csv') }}" class="text-decoration-none">
+            <i class="bi bi-download me-1"></i>Export existing products as CSV template
+          </a>
+        </div>
       </div>
     </div>
   </div>

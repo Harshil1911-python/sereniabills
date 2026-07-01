@@ -78,6 +78,18 @@
           <input type="file" name="backup_file" class="form-control mb-2" accept=".db" required>
           <button type="submit" class="btn btn-danger w-100"><i class="bi bi-upload me-1"></i> Restore Backup</button>
         </form>
+
+        <hr>
+        <div>
+          <a href="{{ url_for('delete_all_data_page') }}"
+             class="btn btn-outline-danger w-100"
+             onclick="return confirm('Go to the data deletion page?')">
+            <i class="bi bi-trash3 me-1"></i> Delete Specific Data
+          </a>
+          <div class="text-muted mt-1" style="font-size:11px">
+            Selectively delete sales, products, customers, etc.
+          </div>
+        </div>
       </div>
     </div>
 

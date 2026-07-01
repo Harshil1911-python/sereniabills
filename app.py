@@ -97,24 +97,37 @@ class Product(db.Model):
     description = db.Column(db.Text)
     image = db.Column(db.String(255))
     expiry_date = db.Column(db.Date, nullable=True)
-    variant_name = db.Column(db.String(100), nullable=True)  # e.g. "Size: L, Color: Red"
+    variant_name = db.Column(db.String(100), nullable=True)
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # ── Weight / unit pricing ─────────────────────────────────────
+    # is_weight_based = True  → price is per `price_unit` (e.g. per kg)
+    # price_unit = 'kg' | 'g' | 'litre' | 'ml' | 'piece' | 'dozen' | 'metre'
+    # price_per_unit = selling price for ONE unit (e.g. ₹100 per kg)
+    is_weight_based = db.Column(db.Boolean, default=False)
+    price_unit      = db.Column(db.String(20), default='kg')   # kg / g / litre / piece …
+    price_per_unit  = db.Column(db.Float, default=0)           # price for 1 unit
 
     def is_low_stock(self):
         return self.stock_quantity <= self.low_stock_threshold
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'name': self.name,
-            'sku': self.sku,
-            'barcode': self.barcode,
-            'selling_price': self.selling_price,
-            'tax_percent': self.tax_percent,
-            'stock_quantity': self.stock_quantity,
-            'image': self.image or '',
-            'category': self.category.name if self.category else '',
+            'id':              self.id,
+            'name':            self.name,
+            'sku':             self.sku,
+            'barcode':         self.barcode,
+            'selling_price':   self.selling_price,
+            'tax_percent':     self.tax_percent,
+            'stock_quantity':  self.stock_quantity,
+            'image':           self.image or '',
+            'category':        self.category.name if self.category else '',
+            'variant_name':    self.variant_name or '',
+            # weight fields
+            'is_weight_based': self.is_weight_based,
+            'price_unit':      self.price_unit or 'kg',
+            'price_per_unit':  self.price_per_unit or 0,
         }
 
 
@@ -468,6 +481,9 @@ def add_product():
                 image=image_filename,
                 expiry_date=expiry_date,
                 variant_name=request.form.get('variant_name') or None,
+                is_weight_based=bool(request.form.get('is_weight_based')),
+                price_unit=request.form.get('price_unit') or 'kg',
+                price_per_unit=float(request.form.get('price_per_unit') or 0),
             )
             db.session.add(product)
             db.session.flush()   # get product.id before committing
@@ -518,6 +534,9 @@ def edit_product(product_id):
         product.low_stock_threshold = int(request.form.get('low_stock_threshold') or 5)
         product.description = request.form.get('description')
         product.variant_name = request.form.get('variant_name') or None
+        product.is_weight_based = bool(request.form.get('is_weight_based'))
+        product.price_unit = request.form.get('price_unit') or 'kg'
+        product.price_per_unit = float(request.form.get('price_per_unit') or 0)
         db.session.commit()
         log_activity('Edit Product', f'Edited product {product.name}')
         flash('Product updated successfully.', 'success')
@@ -571,16 +590,17 @@ def export_products_csv():
 @app.route('/products/import-csv', methods=['POST'])
 @login_required
 def import_products_csv():
+    """Step 1 — Parse CSV, store rows in DB temp table, redirect to preview."""
     file = request.files.get('csv_file')
     if not file or not file.filename:
         flash('No file selected.', 'danger')
         return redirect(url_for('products'))
 
-    # Try UTF-8 first, fall back to latin-1 (covers most Excel CSVs)
+    # Decode — handle UTF-8 BOM (Excel) and latin-1
     try:
         content = file.stream.read()
         try:
-            text = content.decode('utf-8-sig')   # strips BOM if present
+            text = content.decode('utf-8-sig')
         except UnicodeDecodeError:
             text = content.decode('latin-1')
     except Exception as e:
@@ -592,27 +612,102 @@ def import_products_csv():
         reader = csv.DictReader(stream)
 
         if not reader.fieldnames:
-            flash('CSV file appears empty or has no headers.', 'danger')
+            flash('CSV file is empty or has no header row.', 'danger')
             return redirect(url_for('products'))
 
-        # Normalize header names (strip spaces, lowercase)
+        # Normalise headers
         reader.fieldnames = [h.strip().lower().replace(' ', '_') for h in reader.fieldnames]
 
-        count   = 0
-        skipped = 0
-        errors  = []
+        rows = []
+        for row in reader:
+            clean = {k: (v.strip() if v else '') for k, v in row.items()}
+            if clean.get('name', '').strip():
+                rows.append(clean)
 
-        for row_num, row in enumerate(reader, start=2):
+        if not rows:
+            flash('No valid product rows found in CSV.', 'danger')
+            return redirect(url_for('products'))
+
+        # ── Store in DB (avoids 4KB cookie session limit) ──────────────────
+        token = secrets.token_urlsafe(32)
+        # Clean up old sessions for this user first
+        CsvImportSession.query.filter_by(user_id=current_user.id).delete()
+        imp = CsvImportSession(
+            id=token,
+            user_id=current_user.id,
+            filename=file.filename,
+            rows_json=json.dumps(rows)
+        )
+        db.session.add(imp)
+        db.session.commit()
+
+        flash(f'CSV parsed: {len(rows)} row(s) ready to import.', 'info')
+        return redirect(url_for('import_csv_preview', token=token))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'CSV parse error: {str(e)}', 'danger')
+        return redirect(url_for('products'))
+
+
+@app.route('/products/import-csv/preview')
+@login_required
+def import_csv_preview():
+    """Step 2 — Show preview table and ask: Replace All or Append."""
+    token    = request.args.get('token', '')
+    imp      = CsvImportSession.query.filter_by(id=token, user_id=current_user.id).first()
+    if not imp:
+        flash('Import session expired or invalid. Please upload again.', 'warning')
+        return redirect(url_for('products'))
+    rows     = json.loads(imp.rows_json)
+    filename = imp.filename
+    existing_count = Product.query.filter_by(active=True).count()
+    return render_template('import_csv_preview.html',
+                            rows=rows, filename=filename,
+                            token=token,
+                            existing_count=existing_count)
+
+
+@app.route('/products/import-csv/execute', methods=['POST'])
+@login_required
+def import_csv_execute():
+    """Step 3: Execute confirmed import (append or replace)."""
+    token = request.form.get('token', '')
+    mode  = request.form.get('mode', 'append')
+    imp   = CsvImportSession.query.filter_by(id=token, user_id=current_user.id).first()
+
+    if not imp:
+        flash('Import session expired. Please upload the CSV again.', 'danger')
+        return redirect(url_for('products'))
+
+    rows = json.loads(imp.rows_json)
+
+    def safe_float(val, default=0.0):
+        try:
+            return float(str(val).replace(',', '').strip() or default)
+        except Exception:
+            return default
+
+    def safe_int(val, default=0):
+        try:
+            return int(float(str(val).replace(',', '').strip() or default))
+        except Exception:
+            return default
+
+    count   = 0
+    updated = 0
+    errors  = []
+
+    try:
+        if mode == 'replace':
+            db.session.execute(db.text('UPDATE products SET active=0'))
+            db.session.flush()
+
+        for row_num, row in enumerate(rows, start=2):
+            name = row.get('name', '').strip()
+            if not name:
+                continue
             try:
-                # Strip whitespace from all values
-                row = {k: (v.strip() if v else '') for k, v in row.items()}
-
-                name = row.get('name', '').strip()
-                if not name:
-                    skipped += 1
-                    continue
-
-                # Handle category
                 category = None
                 cat_name = row.get('category', '').strip()
                 if cat_name:
@@ -622,7 +717,6 @@ def import_products_csv():
                         db.session.add(category)
                         db.session.flush()
 
-                # Handle brand
                 brand = None
                 brand_name = row.get('brand', '').strip()
                 if brand_name:
@@ -632,55 +726,96 @@ def import_products_csv():
                         db.session.add(brand)
                         db.session.flush()
 
-                # Deduplicate SKU and barcode
-                sku = row.get('sku', '').strip() or None
-                if sku and Product.query.filter_by(sku=sku).first():
-                    sku = None  # skip duplicate silently
-
+                sku     = row.get('sku', '').strip() or None
                 barcode = row.get('barcode', '').strip() or None
-                if barcode and Product.query.filter_by(barcode=barcode).first():
-                    barcode = None
 
-                # Safe numeric parsing
-                def safe_float(val, default=0.0):
-                    try: return float(str(val).replace(',', '').strip() or default)
-                    except: return default
+                existing = None
+                if sku:
+                    existing = Product.query.filter_by(sku=sku).first()
+                if not existing and barcode:
+                    existing = Product.query.filter_by(barcode=barcode).first()
+                if not existing:
+                    existing = Product.query.filter_by(name=name).first()
 
-                def safe_int(val, default=0):
-                    try: return int(float(str(val).replace(',', '').strip() or default))
-                    except: return default
+                if existing and mode == 'append':
+                    existing.name          = name
+                    existing.active        = True
+                    existing.category_id   = category.id if category else existing.category_id
+                    existing.brand_id      = brand.id if brand else existing.brand_id
+                    existing.cost_price    = safe_float(row.get('cost_price'), existing.cost_price)
+                    existing.selling_price = safe_float(row.get('selling_price'), existing.selling_price)
+                    existing.tax_percent   = safe_float(row.get('tax_percent'), existing.tax_percent)
+                    existing.low_stock_threshold = safe_int(row.get('low_stock_threshold'), existing.low_stock_threshold)
+                    if row.get('description', '').strip():
+                        existing.description = row['description'].strip()
+                    if sku and not existing.sku:
+                        existing.sku = sku
+                    if barcode and not existing.barcode:
+                        existing.barcode = barcode
+                    new_stock = safe_int(row.get('stock_quantity'), existing.stock_quantity)
+                    if new_stock != existing.stock_quantity:
+                        diff = new_stock - existing.stock_quantity
+                        existing.stock_quantity = new_stock
+                        inv = Inventory.query.filter_by(product_id=existing.id).first()
+                        if inv:
+                            inv.quantity = new_stock
+                        else:
+                            db.session.add(Inventory(product_id=existing.id, quantity=new_stock))
+                        sign = '+' if diff > 0 else ''
+                        db.session.add(InventoryHistory(
+                            product_id=existing.id, change_type='adjustment',
+                            quantity=abs(diff), reason=f'CSV import ({sign}{diff})',
+                            user_id=current_user.id))
+                    updated += 1
+                else:
+                    if sku and Product.query.filter_by(sku=sku).first():
+                        sku = None
+                    if barcode and Product.query.filter_by(barcode=barcode).first():
+                        barcode = None
+                    stock = safe_int(row.get('stock_quantity'))
+                    p = Product(
+                        name=name, sku=sku, barcode=barcode,
+                        category_id=category.id if category else None,
+                        brand_id=brand.id if brand else None,
+                        cost_price=safe_float(row.get('cost_price')),
+                        selling_price=safe_float(row.get('selling_price')),
+                        tax_percent=safe_float(row.get('tax_percent')),
+                        stock_quantity=stock,
+                        low_stock_threshold=safe_int(row.get('low_stock_threshold'), 5),
+                        description=row.get('description', '').strip() or None,
+                        active=True,
+                    )
+                    db.session.add(p)
+                    db.session.flush()
+                    db.session.add(Inventory(product_id=p.id, quantity=stock))
+                    if stock > 0:
+                        db.session.add(InventoryHistory(
+                            product_id=p.id, change_type='stock_in',
+                            quantity=stock, reason='CSV import',
+                            user_id=current_user.id))
+                    count += 1
 
-                product = Product(
-                    name=name,
-                    sku=sku,
-                    barcode=barcode,
-                    category_id=category.id if category else None,
-                    brand_id=brand.id if brand else None,
-                    cost_price=safe_float(row.get('cost_price')),
-                    selling_price=safe_float(row.get('selling_price')),
-                    tax_percent=safe_float(row.get('tax_percent')),
-                    stock_quantity=safe_int(row.get('stock_quantity')),
-                    low_stock_threshold=safe_int(row.get('low_stock_threshold'), 5),
-                    description=row.get('description', '').strip() or None,
-                )
-                db.session.add(product)
                 db.session.flush()
-                db.session.add(Inventory(product_id=product.id, quantity=product.stock_quantity))
-                count += 1
 
             except Exception as row_err:
+                errors.append(f'Row {row_num} ({name}): {str(row_err)}')
                 db.session.rollback()
-                errors.append(f'Row {row_num} ({row.get("name","?")}): {str(row_err)}')
-                continue
 
         db.session.commit()
-        log_activity('Import Products CSV', f'Imported {count} products, skipped {skipped}')
 
-        msg = f'{count} product(s) imported successfully.'
-        if skipped:
-            msg += f' {skipped} blank rows skipped.'
+        try:
+            CsvImportSession.query.filter_by(id=token).delete()
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        log_activity('CSV Import', f'Mode={mode}: {count} added, {updated} updated, {len(errors)} errors')
+        parts = []
+        if count:   parts.append(f'{count} product(s) added')
+        if updated: parts.append(f'{updated} product(s) updated')
+        msg = ', '.join(parts) + '.' if parts else 'No changes made.'
         if errors:
-            msg += f' {len(errors)} row(s) had errors: ' + '; '.join(errors[:3])
+            msg += f'  {len(errors)} row(s) had errors: ' + '; '.join(errors[:3])
             flash(msg, 'warning')
         else:
             flash(msg, 'success')
@@ -1025,6 +1160,17 @@ class CartState(db.Model):
     updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── Temporary CSV import storage (avoids 4KB session cookie limit) ─────────────
+
+class CsvImportSession(db.Model):
+    __tablename__ = 'csv_import_sessions'
+    id         = db.Column(db.String(36), primary_key=True)   # UUID token
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'))
+    filename   = db.Column(db.String(255))
+    rows_json  = db.Column(db.Text)    # full JSON of all rows
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 def _empty_cart():
     return {'items': [], 'subtotal': '0.00', 'tax': '0.00', 'discount': '0.00', 'total': '0.00'}
 
@@ -1035,12 +1181,13 @@ def api_cart_update():
     data       = request.get_json(force=True) or {}
     cashier_id = str(current_user.id)
     try:
-        row = CartState.query.get(cashier_id)
+        row = db.session.get(CartState, cashier_id)
         if row:
             row.payload    = json.dumps(data)
             row.updated_at = datetime.utcnow()
         else:
-            row = CartState(cashier_id=cashier_id, payload=json.dumps(data))
+            row = CartState(cashier_id=cashier_id, payload=json.dumps(data),
+                            updated_at=datetime.utcnow())
             db.session.add(row)
         db.session.commit()
     except Exception:
@@ -1051,39 +1198,23 @@ def api_cart_update():
 @app.route('/api/cart/state/<cashier_id>')
 def api_cart_state(cashier_id):
     """
-    Supports two modes:
-      • Normal GET            → returns JSON immediately (fast-poll fallback)
-      • GET ?since=<iso>      → long-polls up to 25 s; returns only when data
-                                has changed after `since`, or times out with 304
+    Fast endpoint — returns current cart JSON immediately.
+    The client polls every 1 s on its own. No blocking sleep here
+    so gunicorn workers are never starved.
+    Also returns _ts (ISO timestamp) so the client can detect changes.
     """
-    since_str = request.args.get('since')
-
-    # ── Long-poll mode ────────────────────────────────────────────────────────
-    if since_str:
-        try:
-            since_dt = datetime.fromisoformat(since_str)
-        except ValueError:
-            since_dt = datetime.utcnow() - timedelta(seconds=60)
-
-        deadline = datetime.utcnow() + timedelta(seconds=25)
-        while datetime.utcnow() < deadline:
-            row = CartState.query.get(cashier_id)
-            if row and row.updated_at and row.updated_at > since_dt:
-                data = json.loads(row.payload or '{}') or _empty_cart()
-                data['_ts'] = row.updated_at.isoformat()
-                return jsonify(data)
-            db.session.expire_all()          # force re-read from DB each loop
-            import time; time.sleep(0.4)     # poll DB every 400 ms
-
-        # timeout – tell client nothing changed
-        return '', 304
-
-    # ── Immediate mode ────────────────────────────────────────────────────────
-    row  = CartState.query.get(cashier_id)
-    data = json.loads(row.payload) if row and row.payload else _empty_cart()
-    if row and row.updated_at:
-        data['_ts'] = row.updated_at.isoformat()
-    return jsonify(data)
+    try:
+        row  = db.session.get(CartState, cashier_id)
+        db.session.expire_all()   # always read fresh from DB
+        row  = db.session.get(CartState, cashier_id)
+        data = json.loads(row.payload) if row and row.payload else _empty_cart()
+        data['_ts'] = row.updated_at.isoformat() if (row and row.updated_at) else datetime.utcnow().isoformat()
+    except Exception:
+        data = _empty_cart()
+        data['_ts'] = datetime.utcnow().isoformat()
+    resp = jsonify(data)
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
 
 
 @app.route('/display/<cashier_id>')
@@ -1168,15 +1299,17 @@ def checkout():
     # clear cart from display once finalized
     if status == 'completed':
         try:
-            row = CartState.query.get(str(current_user.id))
+            cid = str(current_user.id)
+            row = db.session.get(CartState, cid)
             empty = _empty_cart()
             empty['_ts'] = datetime.utcnow().isoformat()
             if row:
                 row.payload    = json.dumps(empty)
                 row.updated_at = datetime.utcnow()
             else:
-                db.session.add(CartState(cashier_id=str(current_user.id),
-                                         payload=json.dumps(empty)))
+                db.session.add(CartState(cashier_id=cid,
+                                         payload=json.dumps(empty),
+                                         updated_at=datetime.utcnow()))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -1640,6 +1773,103 @@ def restore_database():
     return redirect(url_for('settings_page'))
 
 
+# ----------------------- DELETE ALL DATA -----------------------
+
+@app.route('/admin/delete-all-data', methods=['GET'])
+@login_required
+@super_admin_required
+def delete_all_data_page():
+    counts = {
+        'products':  Product.query.count(),
+        'customers': Customer.query.count(),
+        'suppliers': Supplier.query.count(),
+        'sales':     Sale.query.count(),
+        'purchases': Purchase.query.count(),
+        'expenses':  Expense.query.count() if hasattr(Expense, '__tablename__') else 0,
+        'inventory_history': InventoryHistory.query.count(),
+        'activity_logs': ActivityLog.query.count(),
+    }
+    return render_template('delete_all_data.html', counts=counts)
+
+
+@app.route('/admin/delete-all-data', methods=['POST'])
+@login_required
+@super_admin_required
+def delete_all_data_execute():
+    what = request.form.getlist('what')   # list of table keys to delete
+    confirm_text = request.form.get('confirm_text', '').strip()
+
+    if confirm_text != 'DELETE ALL':
+        flash('Confirmation text did not match. Nothing was deleted.', 'danger')
+        return redirect(url_for('delete_all_data_page'))
+
+    deleted = []
+
+    try:
+        if 'sales' in what:
+            Refund.query.delete()
+            Return.query.delete()
+            SaleItem.query.delete()
+            Sale.query.delete()
+            # Reset invoice counter
+            s = get_settings()
+            s.next_invoice_number = 1
+            deleted.append('Sales & Invoices')
+
+        if 'purchases' in what:
+            PurchaseItem.query.delete()
+            Purchase.query.delete()
+            deleted.append('Purchase Orders')
+
+        if 'inventory_history' in what:
+            InventoryHistory.query.delete()
+            deleted.append('Inventory History')
+
+        if 'expenses' in what:
+            try:
+                Expense.query.delete()
+                deleted.append('Expenses')
+            except Exception:
+                pass
+
+        if 'customers' in what:
+            Customer.query.delete()
+            deleted.append('Customers')
+
+        if 'suppliers' in what:
+            Supplier.query.delete()
+            deleted.append('Suppliers')
+
+        if 'products' in what:
+            Inventory.query.delete()
+            InventoryHistory.query.delete()
+            Product.query.delete()
+            Category.query.delete()
+            Brand.query.delete()
+            deleted.append('Products, Categories & Brands')
+
+        if 'activity_logs' in what:
+            ActivityLog.query.delete()
+            deleted.append('Activity Logs')
+
+        if 'cart_state' in what:
+            try:
+                CartState.query.delete()
+                deleted.append('Cart State')
+            except Exception:
+                pass
+
+        db.session.commit()
+        log_activity('Delete All Data', f'Deleted: {", ".join(deleted)}')
+        flash(f'Successfully deleted: {", ".join(deleted)}.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error during deletion: {str(e)}', 'danger')
+
+    return redirect(url_for('delete_all_data_page'))
+
+
 # ----------------------- BARCODE / QR -----------------------
 
 @app.route('/products/<int:product_id>/barcode')
@@ -2032,9 +2262,9 @@ def api_stock_alerts():
 @login_required
 def change_password():
     if request.method == 'POST':
-        current_pw = request.form.get('current_password', '')
-        new_pw = request.form.get('new_password', '')
-        confirm_pw = request.form.get('confirm_password', '')
+        current_pw  = request.form.get('current_password', '')
+        new_pw      = request.form.get('new_password', '')
+        confirm_pw  = request.form.get('confirm_password', '')
         if not current_user.check_password(current_pw):
             flash('Current password is incorrect.', 'danger')
         elif len(new_pw) < 6:
@@ -2048,6 +2278,313 @@ def change_password():
             flash('Password changed successfully.', 'success')
             return redirect(url_for('dashboard'))
     return render_template('change_password.html')
+
+
+# ----------------------- BULK STOCK UPDATE -----------------------
+
+@app.route('/inventory/bulk-update', methods=['GET', 'POST'])
+@login_required
+def bulk_stock_update():
+    """Update stock for multiple products at once from a table."""
+    products_list = Product.query.filter_by(active=True).order_by(Product.name).all()
+    if request.method == 'POST':
+        updated = 0
+        for product in products_list:
+            key = f'stock_{product.id}'
+            if key in request.form:
+                try:
+                    new_qty = int(request.form[key])
+                    if new_qty != product.stock_quantity:
+                        diff = new_qty - product.stock_quantity
+                        product.stock_quantity = new_qty
+                        inv = Inventory.query.filter_by(product_id=product.id).first()
+                        if inv:
+                            inv.quantity = new_qty
+                        else:
+                            db.session.add(Inventory(product_id=product.id, quantity=new_qty))
+                        sign = '+' if diff > 0 else ''
+                        db.session.add(InventoryHistory(
+                            product_id=product.id,
+                            change_type='adjustment',
+                            quantity=abs(diff),
+                            reason=f'Bulk update ({sign}{diff})',
+                            user_id=current_user.id))
+                        updated += 1
+                except (ValueError, TypeError):
+                    continue
+        db.session.commit()
+        log_activity('Bulk Stock Update', f'Updated {updated} products')
+        flash(f'{updated} product(s) stock updated successfully.', 'success')
+        return redirect(url_for('bulk_stock_update'))
+    return render_template('bulk_stock_update.html', products=products_list)
+
+
+# ----------------------- CUSTOMER LEDGER -----------------------
+
+@app.route('/customers/<int:customer_id>/ledger')
+@login_required
+def customer_ledger(customer_id):
+    """Full transaction ledger for a customer — sales, payments, balance."""
+    customer = Customer.query.get_or_404(customer_id)
+    sales_list = Sale.query.filter_by(customer_id=customer_id)\
+                           .order_by(Sale.created_at.asc()).all()
+    # Build running balance
+    ledger = []
+    balance = 0.0
+    for sale in sales_list:
+        if sale.status not in ('completed', 'returned', 'refunded'):
+            continue
+        if sale.status == 'completed':
+            amount_due = sale.grand_total - sale.paid_amount
+            balance += amount_due
+            ledger.append({
+                'date':    sale.created_at,
+                'type':    'Sale',
+                'ref':     sale.invoice_number,
+                'debit':   sale.grand_total,
+                'credit':  sale.paid_amount,
+                'balance': balance,
+                'sale_id': sale.id,
+            })
+        elif sale.status in ('returned', 'refunded'):
+            balance = max(0, balance - sale.grand_total)
+            ledger.append({
+                'date':    sale.created_at,
+                'type':    'Return',
+                'ref':     sale.invoice_number,
+                'debit':   0,
+                'credit':  sale.grand_total,
+                'balance': balance,
+                'sale_id': sale.id,
+            })
+    total_sales   = sum(row['debit']  for row in ledger)
+    total_paid    = sum(row['credit'] for row in ledger)
+    return render_template('customer_ledger.html',
+                            customer=customer, ledger=ledger,
+                            total_sales=total_sales, total_paid=total_paid,
+                            current_balance=balance)
+
+
+@app.route('/customers/<int:customer_id>/pay-balance', methods=['POST'])
+@login_required
+def pay_customer_balance(customer_id):
+    """Record a payment against customer's outstanding balance."""
+    customer = Customer.query.get_or_404(customer_id)
+    amount   = float(request.form.get('amount') or 0)
+    method   = request.form.get('payment_method', 'Cash')
+    if amount <= 0:
+        flash('Enter a valid payment amount.', 'danger')
+        return redirect(url_for('customer_ledger', customer_id=customer_id))
+    customer.outstanding_balance = max(0, customer.outstanding_balance - amount)
+    db.session.commit()
+    log_activity('Customer Payment', f'{customer.name} paid {amount} via {method}')
+    flash(f'Payment of {get_settings().currency_symbol}{amount:.2f} recorded.', 'success')
+    return redirect(url_for('customer_ledger', customer_id=customer_id))
+
+
+# ----------------------- DISCOUNT TEMPLATES -----------------------
+
+class DiscountTemplate(db.Model):
+    __tablename__ = 'discount_templates'
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(100), nullable=False)
+    type        = db.Column(db.String(20), default='percent')   # percent | flat
+    value       = db.Column(db.Float, default=0)
+    description = db.Column(db.String(255))
+    active      = db.Column(db.Boolean, default=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+@app.route('/discount-templates', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def discount_templates():
+    if request.method == 'POST':
+        dt = DiscountTemplate(
+            name=request.form['name'],
+            type=request.form.get('type', 'percent'),
+            value=float(request.form.get('value') or 0),
+            description=request.form.get('description', ''))
+        db.session.add(dt)
+        db.session.commit()
+        flash('Discount template added.', 'success')
+    templates = DiscountTemplate.query.filter_by(active=True).all()
+    return render_template('discount_templates.html', templates=templates)
+
+
+@app.route('/discount-templates/<int:tid>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def delete_discount_template(tid):
+    dt = DiscountTemplate.query.get_or_404(tid)
+    dt.active = False
+    db.session.commit()
+    flash('Discount template deleted.', 'success')
+    return redirect(url_for('discount_templates'))
+
+
+@app.route('/api/discount-templates')
+@login_required
+def api_discount_templates():
+    templates = DiscountTemplate.query.filter_by(active=True).all()
+    return jsonify([{'id': t.id, 'name': t.name, 'type': t.type, 'value': t.value} for t in templates])
+
+
+# ----------------------- GST SUMMARY REPORT -----------------------
+
+@app.route('/reports/gst')
+@login_required
+def report_gst():
+    """GST slab-wise tax summary for filing."""
+    period = request.args.get('period', 'monthly')
+    today  = date.today()
+    if period == 'daily':
+        start = today
+    elif period == 'weekly':
+        start = today - timedelta(days=today.weekday())
+    elif period == 'yearly':
+        start = today.replace(month=1, day=1)
+    else:
+        start = today.replace(day=1)
+
+    # Group by tax_percent
+    slabs = db.session.query(
+        SaleItem.tax_percent,
+        func.sum(SaleItem.quantity * SaleItem.unit_price - SaleItem.discount).label('taxable'),
+        func.sum(SaleItem.line_total - (SaleItem.quantity * SaleItem.unit_price - SaleItem.discount)).label('tax_collected')
+    ).join(Sale).filter(
+        func.date(Sale.created_at) >= start,
+        Sale.status == 'completed'
+    ).group_by(SaleItem.tax_percent).order_by(SaleItem.tax_percent).all()
+
+    total_taxable = sum(s.taxable or 0 for s in slabs)
+    total_tax     = sum(s.tax_collected or 0 for s in slabs)
+
+    return render_template('report_gst.html', slabs=slabs,
+                            total_taxable=total_taxable, total_tax=total_tax,
+                            period=period, start=start)
+
+
+# ----------------------- SALES DASHBOARD API -----------------------
+
+@app.route('/api/sales/summary')
+@login_required
+def api_sales_summary():
+    """Quick stats for the current day — used by POS header."""
+    today = date.today()
+    total = db.session.query(func.coalesce(func.sum(Sale.grand_total), 0)).filter(
+        func.date(Sale.created_at) == today, Sale.status == 'completed').scalar()
+    count = Sale.query.filter(
+        func.date(Sale.created_at) == today, Sale.status == 'completed').count()
+    return jsonify({'today_total': round(float(total), 2), 'today_count': count})
+
+
+# ----------------------- PRODUCT QUICK PRICE UPDATE -----------------------
+
+@app.route('/api/products/<int:product_id>/update-price', methods=['POST'])
+@login_required
+def api_update_product_price(product_id):
+    """Quick price update from POS without going to full edit page."""
+    product = Product.query.get_or_404(product_id)
+    data    = request.get_json(force=True) or {}
+    if 'selling_price' in data:
+        try:
+            product.selling_price = float(data['selling_price'])
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid price'}), 400
+    if 'cost_price' in data:
+        try:
+            product.cost_price = float(data['cost_price'])
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid cost price'}), 400
+    db.session.commit()
+    log_activity('Quick Price Update', f'{product.name} → ₹{product.selling_price}')
+    return jsonify({'status': 'ok', 'selling_price': product.selling_price})
+
+
+# ----------------------- SHIFT / CASH REGISTER OPEN-CLOSE -----------------------
+
+class ShiftRecord(db.Model):
+    __tablename__ = 'shift_records'
+    id             = db.Column(db.Integer, primary_key=True)
+    user_id        = db.Column(db.Integer, db.ForeignKey('users.id'))
+    opening_cash   = db.Column(db.Float, default=0)
+    closing_cash   = db.Column(db.Float, nullable=True)
+    expected_cash  = db.Column(db.Float, nullable=True)
+    difference     = db.Column(db.Float, nullable=True)
+    notes          = db.Column(db.Text)
+    opened_at      = db.Column(db.DateTime, default=datetime.utcnow)
+    closed_at      = db.Column(db.DateTime, nullable=True)
+    status         = db.Column(db.String(20), default='open')   # open | closed
+    user           = db.relationship('User')
+
+
+@app.route('/shift', methods=['GET', 'POST'])
+@login_required
+def shift_management():
+    open_shift  = ShiftRecord.query.filter_by(user_id=current_user.id, status='open').first()
+    past_shifts = ShiftRecord.query.filter_by(user_id=current_user.id)\
+                                    .order_by(ShiftRecord.opened_at.desc()).limit(10).all()
+    settings    = get_settings()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'open' and not open_shift:
+            opening_cash = float(request.form.get('opening_cash') or 0)
+            shift = ShiftRecord(user_id=current_user.id, opening_cash=opening_cash,
+                                 notes=request.form.get('notes', ''))
+            db.session.add(shift)
+            db.session.commit()
+            log_activity('Shift Open', f'Opening cash: {opening_cash}')
+            flash(f'Shift opened with {settings.currency_symbol}{opening_cash:.2f} cash.', 'success')
+
+        elif action == 'close' and open_shift:
+            closing_cash = float(request.form.get('closing_cash') or 0)
+            # Calculate expected cash
+            today = date.today()
+            cash_sales = db.session.query(func.coalesce(func.sum(Sale.paid_amount), 0)).filter(
+                func.date(Sale.created_at) >= open_shift.opened_at.date(),
+                Sale.created_at >= open_shift.opened_at,
+                Sale.status == 'completed',
+                Sale.payment_method == 'Cash').scalar()
+            expected = open_shift.opening_cash + float(cash_sales)
+            diff     = closing_cash - expected
+
+            open_shift.closing_cash  = closing_cash
+            open_shift.expected_cash = expected
+            open_shift.difference    = diff
+            open_shift.closed_at     = datetime.utcnow()
+            open_shift.status        = 'closed'
+            open_shift.notes         = request.form.get('notes', '')
+            db.session.commit()
+            log_activity('Shift Close', f'Closing: {closing_cash}, Expected: {expected}, Diff: {diff}')
+            flash(f'Shift closed. Difference: {settings.currency_symbol}{diff:+.2f}', 'success' if abs(diff) < 1 else 'warning')
+
+        return redirect(url_for('shift_management'))
+
+    # Sales during current open shift
+    shift_sales = []
+    if open_shift:
+        shift_sales = Sale.query.filter(
+            Sale.created_at >= open_shift.opened_at,
+            Sale.status == 'completed').all()
+
+    return render_template('shift_management.html',
+                            open_shift=open_shift, past_shifts=past_shifts,
+                            shift_sales=shift_sales, settings=settings)
+
+
+# ----------------------- PRODUCT NOTES / INTERNAL COMMENTS -----------------------
+
+@app.route('/products/<int:product_id>/notes', methods=['POST'])
+@login_required
+def update_product_notes(product_id):
+    product = Product.query.get_or_404(product_id)
+    product.description = request.form.get('notes', product.description)
+    db.session.commit()
+    flash('Product notes updated.', 'success')
+    return redirect(url_for('edit_product', product_id=product_id))
 
 
 # ----------------------- SHORTCUT: INVOICE REPRINT -----------------------
